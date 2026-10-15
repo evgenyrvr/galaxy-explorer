@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.3 — 2026-10-15
+
+- Fix (plots): the central black hole was drawn in the same white as the total curve, so
+  with the black hole selected the DM-dominated total looked like its profile. The black
+  hole is now orange, and with a selection the total is a grey dashed reference.
+- Plots note that a point mass has no finite ρ or Σ (δ-function at r = 0) and a Keplerian Vc.
+- Regression test: black-hole M(<r) is constant, Vc = √(GM/r), ρ = 0 in all presets.
+
 ## 0.3.2 — 2026-10-15
 
 - Fix: expanding the plots to the whole window froze the window (≈2 FPS, empty plot).

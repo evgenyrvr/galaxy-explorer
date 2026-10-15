@@ -210,7 +210,7 @@ func (p *M31) components(env galaxy.Env, gss physics.Distribution) []*galaxy.Com
 		{ID: "bh.central", Name: "Central black hole", Matter: ontology.BlackHole, Structure: "nucleus", Evidence: ontology.Reconstructed,
 			Sources: []string{"bender2005"}, Dist: physics.PointMass{}, GeomKey: "bh",
 			Notes:  "Point mass. Drawn as a schematic icon; its event horizon (~4×10⁻⁶ pc) is not to scale.",
-			Visual: galaxy.Visual{Style: "icon", Color: "#ffffff", Size: 1, Opacity: 1, Markers: 1}},
+			Visual: galaxy.Visual{Style: "icon", Color: "#f5b942", Size: 1, Opacity: 1, Markers: 1}},
 	}
 	return withoutNil(comps)
 }

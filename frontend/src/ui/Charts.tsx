@@ -46,6 +46,8 @@ export function Charts(p: Props) {
   const [legend, setLegend] = useState<{ label: string; color: string; dash?: boolean; points?: boolean }[]>([]);
   const k = KINDS.find((x) => x.id === kind)!;
   const relevant = p.datasets.filter((d) => d.quantity === k.quantity);
+  // Point masses among the plotted components (shown only for an explicit selection).
+  const pointMasses = p.components.filter((c) => c.kind === 'point_mass' && p.show.includes(c.id)).map((c) => c.name);
 
   useEffect(() => {
     const el = host.current;
@@ -58,7 +60,12 @@ export function Charts(p: Props) {
     // Without a selection, curves are summed per matter category (Vc in quadrature).
     const pick = (prof: Profiles, quadrature: boolean): S[] => {
       const all = listOf(prof);
-      const total: S[] = all.filter((s) => s.id === 'total').map((s) => ({ ...s, color: '#ffffff' }));
+      // With a selection the total is a grey dashed reference, so the selected
+      // components stand out; otherwise it is the main white curve.
+      const total: S[] = all.filter((s) => s.id === 'total').map((s) =>
+        p.show.length > 0
+          ? { ...s, label: 'Total (all matter)', color: '#8a94ad', dash: [4, 4] }
+          : { ...s, label: 'Total (all matter)', color: '#ffffff' });
       if (p.show.length > 0) return [...total, ...all.filter((s) => p.show.includes(s.id)).map((s) => ({ ...s, color: colors.get(s.id) ?? '#888' }))];
       const groups = new Map<string, { id: string; label: string; y: number[]; color: string }>();
       for (const s of all) {
@@ -237,6 +244,10 @@ export function Charts(p: Props) {
         <span className="muted">
           {kind === 'surface' && p.compare ? 'Comparison is not drawn for Σ (disc-only quantity). ' : ''}
           {relevant.length === 0 && p.datasets.length > 0 ? 'No imported data for this quantity. ' : ''}
+          {(kind === 'density' || kind === 'surface') && pointMasses.length > 0
+            ? `${pointMasses.join(', ')}: point mass — its density is a δ-function at r = 0 and is not plotted. `
+            : ''}
+          {kind === 'vc' && pointMasses.length > 0 ? `${pointMasses.join(', ')}: Keplerian Vc ∝ r^−1/2. ` : ''}
           Model curves: synthetic reconstruction. {kind === 'vc' ? p.profiles?.note : ''}
         </span>
       </div>

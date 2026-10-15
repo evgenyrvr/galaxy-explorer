@@ -221,7 +221,7 @@ func (p *M31Obs) Build(env galaxy.Env) []*galaxy.Component {
 		{ID: "bh.central", Name: "Central black hole", Matter: ontology.BlackHole, Structure: "nucleus", Evidence: ontology.Inferred,
 			Sources: []string{"bender2005"}, Dist: physics.PointMass{}, GeomKey: "bh",
 			Notes:  "1.4×10⁸ M☉ (+0.9/−0.3) from nuclear stellar dynamics (Bender+2005). Schematic icon, not to scale.",
-			Visual: galaxy.Visual{Style: "icon", Color: "#ffffff", Size: 1, Opacity: 1, Markers: 1}},
+			Visual: galaxy.Visual{Style: "icon", Color: "#f5b942", Size: 1, Opacity: 1, Markers: 1}},
 	}
 }
 

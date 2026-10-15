@@ -7,6 +7,7 @@ import (
 	"galaxy/internal/budget"
 	"galaxy/internal/galaxy"
 	"galaxy/internal/physics"
+	"galaxy/internal/units"
 )
 
 func newModel(t *testing.T, id string) *galaxy.Model {
@@ -237,5 +238,42 @@ func TestRegionSelection(t *testing.T) {
 	all := m.SelectionMass(galaxy.Selection{Region: &galaxy.Region{Kind: "sphere", RMax: m.Snapshot().R200c * 1.0001}})
 	if !near(all.Mass, b.TotalMass) && math.Abs(all.Mass/b.TotalMass-1) > 1e-3 {
 		t.Fatalf("sphere of R200c holds %g of %g", all.Mass, b.TotalMass)
+	}
+}
+
+// The central black hole is a point mass: M(<r) constant, Vc ∝ r^−1/2,
+// no finite density — never a halo-like profile.
+func TestBlackHoleProfiles(t *testing.T) {
+	for _, id := range []string{"m31-normalized", "m31-observational", "m87-normalized"} {
+		m := newModel(t, id)
+		p := m.Profiles(galaxy.ProfileRequest{Components: []string{"bh.central"}})
+		mbh := m.Budget().ComponentMass("black_hole", "bh.central")
+		var enc, vc, rho []float64
+		for _, s := range p.Enclosed {
+			if s.ID == "bh.central" {
+				enc = s.Y
+			}
+		}
+		for _, s := range p.Vc {
+			if s.ID == "bh.central" {
+				vc = s.Y
+			}
+		}
+		for _, s := range p.Density {
+			if s.ID == "bh.central" {
+				rho = s.Y
+			}
+		}
+		for i, r := range p.R {
+			if !near(enc[i], mbh) {
+				t.Fatalf("%s: M_BH(<%.3g) = %g, want constant %g", id, r, enc[i], mbh)
+			}
+			if want := math.Sqrt(units.G * mbh / r); !near(vc[i], want) {
+				t.Fatalf("%s: Vc_BH(%.3g) = %g, want Keplerian %g", id, r, vc[i], want)
+			}
+			if rho[i] != 0 {
+				t.Fatalf("%s: point mass has finite density %g at r = %g", id, rho[i], r)
+			}
+		}
 	}
 }
