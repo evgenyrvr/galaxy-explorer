@@ -84,7 +84,7 @@ input:disabled { opacity: 0.55; }
 .ev-RECONSTRUCTED { background: var(--reconstructed); color: #321; }
 .ev-ILLUSTRATIVE { background: var(--illustrative); color: #213; }
 .badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.05em; width: auto; height: auto; }
-.badge.recon { background: #3a2f10; color: var(--reconstructed); border: 1px solid #5a4818; }
+.badge.recon { white-space: nowrap; background: #3a2f10; color: var(--reconstructed); border: 1px solid #5a4818; }
 
 .tabs { min-width: 0; display: flex; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--line); align-items: center; }
 .inspector, .budget { padding: 10px; }
@@ -135,3 +135,7 @@ input:disabled { opacity: 0.55; }
 .toast { position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%); padding: 8px 14px; border-radius: 4px; z-index: 30; max-width: 70%; cursor: pointer; }
 .toast.error { background: #3a1212; border: 1px solid #7a2a2a; color: #ffd0d0; }
 .toast.info { background: #102a1c; border: 1px solid #1f5a3a; color: #c9f5da; }
+
+.file-actions { display: flex; gap: 6px; margin-left: auto; flex-wrap: nowrap; align-items: center; }
+.close-btn { font-weight: 600; padding: 3px 10px; }
+.close-btn:hover { background: #8a1f1f; border-color: #c03030; color: #fff; }

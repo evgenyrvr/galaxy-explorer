@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { Quit } from '../wailsjs/runtime/runtime';
 import { api, arr, errorText, PresetInfo, profileRequest, Profiles, selection as toSel, Selection, SelectionReport, State } from './api';
 import { length, mass, parseMass, pct } from './format';
 import { CameraState, GalaxyScene, SceneStats } from './scene/GalaxyScene';
@@ -331,11 +332,13 @@ export default function App() {
             <option value="observed">observed only</option>
           </select>
         </label>
-        <div className="grow" />
-        <button onClick={open}>Open</button>
-        <button onClick={save}>Save</button>
-        <button onClick={shot}>PNG</button>
-        <button onClick={csv}>CSV</button>
+        <div className="file-actions">
+          <button onClick={save}>Save</button>
+          <button onClick={shot}>PNG</button>
+          <button onClick={csv}>CSV</button>
+          <button onClick={open}>Open</button>
+          <button className="close-btn" onClick={() => Quit()} title="Quit Galaxy Explorer" aria-label="Quit">✕</button>
+        </div>
       </header>
 
       <main className="main">
