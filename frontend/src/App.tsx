@@ -21,6 +21,9 @@ interface UIDoc {
   dataMode: DataMode;
   quality: number;
   showHalo: boolean;
+  showLeft?: boolean;
+  showRight?: boolean;
+  xLog?: boolean;
   region?: Region;
   hideOutside?: boolean;
   compareId?: string;
@@ -48,6 +51,10 @@ export default function App() {
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showCharts, setShowCharts] = useState(true);
+  const [showLeft, setShowLeft] = useState(true);
+  const [showRight, setShowRight] = useState(true);
+  const [chartsMax, setChartsMax] = useState(false);
+  const [xLog, setXLog] = useState(true);
   const [region, setRegion] = useState<Region>({ kind: '', rMin: 0, rMax: 10, zMax: 0 });
   const [hideOutside, setHideOutside] = useState(true);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -257,6 +264,7 @@ export default function App() {
       if (e.ctrlKey && e.key.toLowerCase() === 'z') actions.undo();
       if (e.ctrlKey && e.key.toLowerCase() === 'y') actions.redo();
       if (e.key === 'Escape') {
+        if (chartsMax) return setChartsMax(false);
         setSel({ components: [], tags: [] });
         setMenu(null);
       }
@@ -279,7 +287,7 @@ export default function App() {
   // ---- files
   const uiDoc = (): UIDoc => ({
     camera: scene.current!.getCamera(), visible: [...visible], selection: sel, filterTags, filterOr, dataMode, quality, showHalo,
-    region, hideOutside, compareId,
+    region, hideOutside, compareId, showLeft, showRight, xLog,
   });
   const save = async () => {
     try {
@@ -309,6 +317,9 @@ export default function App() {
       setShowHalo(ui.showHalo ?? true);
       setRegion(ui.region ?? { kind: '', rMin: 0, rMax: 10, zMax: 0 });
       setHideOutside(ui.hideOutside ?? true);
+      setShowLeft(ui.showLeft ?? true);
+      setShowRight(ui.showRight ?? true);
+      setXLog(ui.xLog ?? true);
       setCompareId(ui.compareId ?? '');
       setDatasets(await api.Datasets());
       if (ui.camera) pendingUI.current = ui as UIDoc;
@@ -401,7 +412,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="main">
+      <main className={`main ${showLeft ? '' : 'no-left'} ${showRight ? '' : 'no-right'} ${chartsMax && showCharts ? 'charts-max' : ''}`}>
         <aside className="left">{state && (
           <StructureTree
             state={state} visible={visible} hiddenByMode={hiddenByMode} setVisible={setVisible} selection={sel}
@@ -413,8 +424,14 @@ export default function App() {
           <RegionPanel region={region} setRegion={setRegion} hideOutside={hideOutside} setHideOutside={setHideOutside} />
         </aside>
 
-        <section className="center">
+        <section className={`center ${showCharts ? '' : 'no-charts'}`}>
           <div className="scene" ref={sceneHost}>
+            <button className="panel-toggle left-toggle" onClick={() => setShowLeft(!showLeft)} title={showLeft ? 'Hide the structure panel' : 'Show the structure panel'}>
+              {showLeft ? '‹' : '›'}
+            </button>
+            <button className="panel-toggle right-toggle" onClick={() => setShowRight(!showRight)} title={showRight ? 'Hide the inspector panel' : 'Show the inspector panel'}>
+              {showRight ? '›' : '‹'}
+            </button>
             {loading && <div className="loading">Generating markers…</div>}
             {(dataMode === 'observed' || dataMode === 'inferred') && hiddenByMode.size === arr(state?.components).length && (
               <div className="banner">This preset contains no {dataMode === 'observed' ? 'directly observed' : 'observed or inferred'} components, so nothing is shown in this mode. Fake observational points are never generated.</div>
@@ -434,6 +451,7 @@ export default function App() {
             components={arr(state.components)} show={chartIds} matterLabels={matterLabels}
             datasets={datasets} presets={presets} currentPreset={state.preset.id} compareId={compareId} setCompareId={setCompareId}
             onImport={importProfile} onRemoveDataset={(id) => api.RemoveDataset(id).then(setDatasets)}
+            xLog={xLog} setXLog={setXLog} expanded={chartsMax} onToggleExpand={() => setChartsMax(!chartsMax)}
           />}
         </section>
 

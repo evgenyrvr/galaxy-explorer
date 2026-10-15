@@ -23,7 +23,7 @@ import (
 )
 
 // AppVersion is written into saved projects.
-const AppVersion = "0.3.0"
+const AppVersion = "0.3.1"
 
 const defaultSeed = 20261015
 

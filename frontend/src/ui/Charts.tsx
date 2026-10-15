@@ -30,6 +30,10 @@ interface Props {
   setCompareId: (id: string) => void;
   onImport: () => void;
   onRemoveDataset: (id: string) => void;
+  xLog: boolean;
+  setXLog: (v: boolean) => void;
+  expanded: boolean;
+  onToggleExpand: () => void;
 }
 
 type S = { id: string; label: string; y: (number | null)[]; color: string; dash?: number[] };
@@ -122,7 +126,9 @@ export function Charts(p: Props) {
     const dataX = pts.map((q) => q.r);
     const dataY = pts.flatMap((q) => [q.v - q.errLo, q.v + q.errHi, q.v]).filter((v) => !k.logY || v > floor);
     const xRange = (_u: uPlot, mn: number, mx: number): uPlot.Range.MinMax =>
-      uPlot.rangeLog(Math.min(mn, ...dataX), Math.max(mx, ...dataX), 10, true) as uPlot.Range.MinMax;
+      p.xLog
+        ? (uPlot.rangeLog(Math.min(mn, ...dataX), Math.max(mx, ...dataX), 10, true) as uPlot.Range.MinMax)
+        : [0, Math.max(mx, ...dataX) * 1.02];
     const yRange = (_u: uPlot, mn: number, mx: number): uPlot.Range.MinMax => {
       const lo = Math.min(mn, ...dataY), hi = Math.max(mx, ...dataY);
       if (k.logY) return uPlot.rangeLog(lo, hi, 10, true) as uPlot.Range.MinMax;
@@ -133,9 +139,9 @@ export function Charts(p: Props) {
     const opts: uPlot.Options = {
       width: Math.max(200, el.clientWidth - 16),
       height: Math.max(100, el.clientHeight),
-      scales: { x: { time: false, distr: 3, range: xRange }, y: k.logY ? { distr: 3, range: yRange } : { range: yRange } },
+      scales: { x: { time: false, distr: p.xLog ? 3 : 1, range: xRange }, y: k.logY ? { distr: 3, range: yRange } : { range: yRange } },
       axes: [
-        { label: k.x, stroke: '#9aa6c0', grid: { stroke: '#1d2436' }, ticks: { stroke: '#2a3350' }, values: (_u, v) => v.map(decadeLabel(v)) },
+        { label: k.x, stroke: '#9aa6c0', grid: { stroke: '#1d2436' }, ticks: { stroke: '#2a3350' }, values: (_u, v) => (p.xLog ? v.map(decadeLabel(v)) : v.map((x) => String(+x.toPrecision(4)))) },
         {
           label: k.y, stroke: '#9aa6c0', grid: { stroke: '#1d2436' }, ticks: { stroke: '#2a3350' }, size: 64, space: 22,
           values: (u, v) => (k.logY ? v.map(decadeLabel(v, Math.max(3, Math.floor(u.bbox.height / devicePixelRatio / 22)))) : v.map((x) => String(+x.toPrecision(3)))),
@@ -174,7 +180,7 @@ export function Charts(p: Props) {
       plot.current?.destroy();
       plot.current = null;
     };
-  }, [p.profiles, p.compare, kind, p.show.join(','), p.components, p.datasets]);
+  }, [p.profiles, p.compare, kind, p.show.join(','), p.components, p.datasets, p.xLog]);
 
   return (
     <div className="charts">
@@ -184,6 +190,16 @@ export function Charts(p: Props) {
             {x.label}
           </button>
         ))}
+        <span className="sep" />
+        <button
+          className="axis-toggle" onClick={() => p.setXLog(!p.xLog)}
+          title="Switch the radius axis between logarithmic and linear"
+        >
+          x: {p.xLog ? 'log' : 'lin'}
+        </button>
+        <button className={p.expanded ? 'on' : ''} onClick={p.onToggleExpand} title={p.expanded ? 'Back to the scene (Esc)' : 'Expand the plots to the whole window'}>
+          {p.expanded ? '⤡ Collapse' : '⤢ Expand'}
+        </button>
         <span className="sep" />
         <label className="small">
           Compare{' '}

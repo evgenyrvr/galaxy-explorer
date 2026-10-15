@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1 — 2026-10-15
+
+- Side panels can be hidden with the ‹ › handles on the scene edges to enlarge the scene.
+- Plots can be expanded to the whole window (⤢ Expand / ⤡ Collapse, or Esc).
+- Radius axis of the plots switches between logarithmic and linear (x: log / lin).
+- Panel visibility and the axis mode are saved in projects.
+- Fix: hiding the plots no longer leaves an empty strip below the scene.
+
 ## 0.3.0 — 2026-10-15
 
 - Observational preset **M31 observational**: masses from Chemin+2009 (stellar disc and
