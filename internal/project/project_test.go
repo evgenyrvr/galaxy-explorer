@@ -20,7 +20,7 @@ func TestRoundTrip(t *testing.T) {
 	_ = m.Edit(func(b *budget.Budget) error { return b.SetFraction("stars", 0.12, budget.Proportional) })
 	_ = m.Edit(func(b *budget.Budget) error { return b.SetTotalMass(1.5e12) })
 	ui := json.RawMessage(`{"camera":{"position":[1,2,3]},"hidden":["dm.halo"]}`)
-	f := New(m, "test", ui)
+	f := New(m, "test", nil, ui)
 	data, _ := json.Marshal(f)
 
 	g, err := Parse(data)
@@ -41,7 +41,7 @@ func TestRoundTrip(t *testing.T) {
 	if string(g.UI) != string(ui) {
 		t.Fatalf("UI state not restored: %s", g.UI)
 	}
-	csv, err := MassCSV(m2.Snapshot(), nil)
+	csv, err := MassCSV(m2.Snapshot(), nil, nil)
 	if err != nil || !strings.Contains(string(csv), "stars.thin_disk") {
 		t.Fatalf("csv: %v", err)
 	}

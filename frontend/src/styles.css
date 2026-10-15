@@ -139,3 +139,10 @@ input:disabled { opacity: 0.55; }
 .file-actions { display: flex; gap: 6px; margin-left: auto; flex-wrap: nowrap; align-items: center; }
 .close-btn { font-weight: 600; padding: 3px 10px; }
 .close-btn:hover { background: #8a1f1f; border-color: #c03030; color: #fff; }
+
+.region { border-top: 1px solid var(--line); padding: 6px 10px 10px; }
+.region-inputs { margin-top: 6px; }
+input.num.short { width: 56px; }
+.chip { display: inline-flex; align-items: center; gap: 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 0 2px 0 8px; font-size: 11px; white-space: nowrap; }
+.chart-legend i.dash { background: none !important; border-top: 2px dashed; height: 0; }
+.chart-legend i.dot { width: 6px; height: 6px; border-radius: 50%; }

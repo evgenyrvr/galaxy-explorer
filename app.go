@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,22 +17,24 @@ import (
 
 	"galaxy/internal/budget"
 	"galaxy/internal/galaxy"
+	"galaxy/internal/obsdata"
 	"galaxy/internal/presets"
 	"galaxy/internal/project"
 )
 
 // AppVersion is written into saved projects.
-const AppVersion = "0.1.0"
+const AppVersion = "0.2.0"
 
 const defaultSeed = 20261015
 
 // App is the Wails-bound facade over the Go mass model. All mass logic lives
 // in Go; the frontend only displays and requests changes.
 type App struct {
-	ctx     context.Context
-	mu      sync.Mutex
-	presets map[string]galaxy.Preset
-	model   *galaxy.Model
+	ctx      context.Context
+	mu       sync.Mutex
+	presets  map[string]galaxy.Preset
+	model    *galaxy.Model
+	datasets []obsdata.Dataset
 }
 
 // NewApp creates the application.
@@ -218,7 +221,10 @@ func (a *App) SaveProject(ui string) (string, error) {
 	if err != nil || path == "" {
 		return "", err
 	}
-	f := project.New(m, "Galaxy Explorer "+AppVersion, json.RawMessage(ui))
+	a.mu.Lock()
+	ds := append([]obsdata.Dataset(nil), a.datasets...)
+	a.mu.Unlock()
+	f := project.New(m, "Galaxy Explorer "+AppVersion, ds, json.RawMessage(ui))
 	data, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return "", err
@@ -242,6 +248,19 @@ func (a *App) OpenProject() (*OpenResult, error) {
 	if err != nil || path == "" {
 		return nil, err
 	}
+	return a.openPath(path)
+}
+
+// StartupProject opens the project given on the command line
+// (galaxy.exe path	oile.galaxy.json), or returns nil.
+func (a *App) StartupProject() (*OpenResult, error) {
+	if len(os.Args) < 2 || strings.HasPrefix(os.Args[1], "-") {
+		return nil, nil
+	}
+	return a.openPath(os.Args[1])
+}
+
+func (a *App) openPath(path string) (*OpenResult, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -263,6 +282,7 @@ func (a *App) OpenProject() (*OpenResult, error) {
 	}
 	a.mu.Lock()
 	a.model = m
+	a.datasets = f.Datasets
 	a.mu.Unlock()
 	return &OpenResult{Path: path, State: m.Snapshot(), UI: string(f.UI)}, nil
 }
@@ -275,10 +295,10 @@ func (a *App) ExportMassCSV(sel galaxy.Selection) (string, error) {
 	}
 	rep := m.SelectionMass(sel)
 	var selp *galaxy.SelectionReport
-	if len(sel.Components)+len(sel.Tags) > 0 {
+	if len(sel.Components)+len(sel.Tags) > 0 || sel.Region.Active() {
 		selp = &rep
 	}
-	data, err := project.MassCSV(m.Snapshot(), selp)
+	data, err := project.MassCSV(m.Snapshot(), selp, sel.Region)
 	if err != nil {
 		return "", err
 	}
@@ -335,4 +355,76 @@ func (a *App) particleMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write(buf)
 	})
+}
+
+// ImportProfile asks for an observational profile CSV and adds it.
+func (a *App) ImportProfile() ([]obsdata.Dataset, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:   "Import radial profile",
+		Filters: []runtime.FileFilter{{DisplayName: "Profile CSV (*.csv)", Pattern: "*.csv;*.txt"}},
+	})
+	if err != nil || path == "" {
+		return a.Datasets(), err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return a.Datasets(), err
+	}
+	d, err := obsdata.Parse(filepath.Base(path), data)
+	if err != nil {
+		return a.Datasets(), fmt.Errorf("%s: %w", filepath.Base(path), err)
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	d.ID = fmt.Sprintf("ds%d", len(a.datasets)+1)
+	for _, x := range a.datasets {
+		if x.ID == d.ID {
+			d.ID += "b"
+		}
+	}
+	a.datasets = append(a.datasets, d)
+	return append([]obsdata.Dataset(nil), a.datasets...), nil
+}
+
+// Datasets returns the imported profiles.
+func (a *App) Datasets() []obsdata.Dataset {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]obsdata.Dataset(nil), a.datasets...)
+}
+
+// RemoveDataset deletes an imported profile.
+func (a *App) RemoveDataset(id string) []obsdata.Dataset {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	out := a.datasets[:0]
+	for _, d := range a.datasets {
+		if d.ID != id {
+			out = append(out, d)
+		}
+	}
+	a.datasets = out
+	return append([]obsdata.Dataset(nil), a.datasets...)
+}
+
+// CompareProfiles returns the profiles of another preset with its default
+// fractions at the current M_total, for overlays on the same axes.
+func (a *App) CompareProfiles(presetID string) (galaxy.Profiles, error) {
+	cur, err := a.current()
+	if err != nil {
+		return galaxy.Profiles{}, err
+	}
+	p, ok := a.presets[presetID]
+	if !ok {
+		return galaxy.Profiles{}, fmt.Errorf("unknown preset %q", presetID)
+	}
+	m, err := galaxy.NewModel(p, defaultSeed)
+	if err != nil {
+		return galaxy.Profiles{}, err
+	}
+	total := cur.Budget().TotalMass
+	if err := m.Edit(func(b *budget.Budget) error { return b.SetTotalMass(total) }); err != nil {
+		return galaxy.Profiles{}, err
+	}
+	return m.Profiles(galaxy.ProfileRequest{RMax: cur.Snapshot().R200c}), nil
 }

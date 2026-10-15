@@ -6,8 +6,20 @@ export function AssignRemainder(arg1) {
   return window['go']['main']['App']['AssignRemainder'](arg1);
 }
 
+export function CompareProfiles(arg1) {
+  return window['go']['main']['App']['CompareProfiles'](arg1);
+}
+
+export function Datasets() {
+  return window['go']['main']['App']['Datasets']();
+}
+
 export function ExportMassCSV(arg1) {
   return window['go']['main']['App']['ExportMassCSV'](arg1);
+}
+
+export function ImportProfile() {
+  return window['go']['main']['App']['ImportProfile']();
 }
 
 export function ListPresets() {
@@ -32,6 +44,10 @@ export function Profiles(arg1) {
 
 export function Redo() {
   return window['go']['main']['App']['Redo']();
+}
+
+export function RemoveDataset(arg1) {
+  return window['go']['main']['App']['RemoveDataset'](arg1);
 }
 
 export function ResetBudget() {
@@ -76,6 +92,10 @@ export function SetShareLocked(arg1, arg2, arg3) {
 
 export function SetTotalMass(arg1) {
   return window['go']['main']['App']['SetTotalMass'](arg1);
+}
+
+export function StartupProject() {
+  return window['go']['main']['App']['StartupProject']();
 }
 
 export function State() {

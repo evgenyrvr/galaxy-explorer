@@ -1,0 +1,17 @@
+# Example of the profile import format. These numbers are SYNTHETIC test values
+# (an exponential disc with Σ0 = 900 M☉/pc², Rd = 5.3 kpc, 10% errors), not a measurement.
+# quantity: surface_density
+# unit: Msun/pc2
+# radius_unit: kpc
+# evidence: ILLUSTRATIVE
+# source: Galaxy Explorer synthetic test file
+# name: Synthetic Σ(R) example
+r,value,err
+2,617,62
+4,422,42
+6,290,29
+8,198,20
+10,136,14
+14,64,6
+18,30,3
+22,14,1.4

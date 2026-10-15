@@ -205,3 +205,37 @@ func TestProfilesUnits(t *testing.T) {
 	t.Logf("M31-inspired Vmax(5–40 kpc) = %.0f km/s", vmax)
 	_ = physics.Vec3{}
 }
+
+// Region selections: analytic sphere/cylinder masses agree with the
+// reference-sample estimate and never exceed the owners.
+func TestRegionSelection(t *testing.T) {
+	m := newModel(t, "m31-normalized")
+	b := m.Budget()
+	sphere := &galaxy.Region{Kind: "sphere", RMin: 0, RMax: 10}
+	r := m.SelectionMass(galaxy.Selection{Components: []string{"stars.thin_disk"}, Region: sphere})
+	if !r.Exact || r.Mass <= 0 || r.Mass >= b.ComponentMass("stars", "stars.thin_disk") {
+		t.Fatalf("thin disc inside 10 kpc: %g (exact=%v)", r.Mass, r.Exact)
+	}
+	// Exponential disc: fraction inside R is 1 − (1 + x)e^−x, x = R/Rd (thin disc ⇒ sphere ≈ cylinder).
+	x := 10 / 5.3
+	want := (1 - (1+x)*math.Exp(-x)) / (1 - (1+32/5.3)*math.Exp(-32/5.3))
+	if got := r.Parts[0].Fraction; math.Abs(got-want) > 0.01 {
+		t.Fatalf("thin disc fraction inside 10 kpc = %.4f, want ≈ %.4f", got, want)
+	}
+	cyl := &galaxy.Region{Kind: "cylinder", RMin: 0, RMax: 10, ZMax: 0.5}
+	c := m.SelectionMass(galaxy.Selection{Components: []string{"stars.thin_disk"}, Region: cyl})
+	if c.Mass >= r.Mass {
+		t.Fatalf("|z|<0.5 kpc slab must hold less than the full cylinder")
+	}
+	// Arm inside a region: sampled estimate, bounded by the whole arm.
+	armAll := m.SelectionMass(galaxy.Selection{Tags: []string{"arm_1"}})
+	armIn := m.SelectionMass(galaxy.Selection{Tags: []string{"arm_1"}, Region: sphere})
+	if armIn.Exact || armIn.Mass <= 0 || armIn.Mass > armAll.Mass {
+		t.Fatalf("arm in region %g vs arm %g", armIn.Mass, armAll.Mass)
+	}
+	// Region alone selects every component; a sphere of R200c holds M200c.
+	all := m.SelectionMass(galaxy.Selection{Region: &galaxy.Region{Kind: "sphere", RMax: m.Snapshot().R200c * 1.0001}})
+	if !near(all.Mass, b.TotalMass) && math.Abs(all.Mass/b.TotalMass-1) > 1e-3 {
+		t.Fatalf("sphere of R200c holds %g of %g", all.Mass, b.TotalMass)
+	}
+}

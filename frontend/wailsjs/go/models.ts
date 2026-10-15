@@ -239,9 +239,28 @@ export namespace galaxy {
 		    return a;
 		}
 	}
+	export class Region {
+	    kind: string;
+	    rMin: number;
+	    rMax: number;
+	    zMax: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Region(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.rMin = source["rMin"];
+	        this.rMax = source["rMax"];
+	        this.zMax = source["zMax"];
+	    }
+	}
 	export class Selection {
 	    components: string[];
 	    tags: string[];
+	    region?: Region;
 	
 	    static createFrom(source: any = {}) {
 	        return new Selection(source);
@@ -251,7 +270,26 @@ export namespace galaxy {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.components = source["components"];
 	        this.tags = source["tags"];
+	        this.region = this.convertValues(source["region"], Region);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class SelectionPart {
 	    component: string;
@@ -479,6 +517,79 @@ export namespace main {
 	        this.path = source["path"];
 	        this.state = this.convertValues(source["state"], galaxy.State);
 	        this.ui = source["ui"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
+export namespace obsdata {
+	
+	export class Point {
+	    r: number;
+	    v: number;
+	    err: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Point(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.r = source["r"];
+	        this.v = source["v"];
+	        this.err = source["err"];
+	    }
+	}
+	export class Dataset {
+	    id: string;
+	    name: string;
+	    quantity: string;
+	    unit: string;
+	    originalUnit: string;
+	    radiusUnit: string;
+	    distanceKpc?: number;
+	    evidence: string;
+	    source: string;
+	    url?: string;
+	    notes?: string;
+	    points: Point[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Dataset(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.quantity = source["quantity"];
+	        this.unit = source["unit"];
+	        this.originalUnit = source["originalUnit"];
+	        this.radiusUnit = source["radiusUnit"];
+	        this.distanceKpc = source["distanceKpc"];
+	        this.evidence = source["evidence"];
+	        this.source = source["source"];
+	        this.url = source["url"];
+	        this.notes = source["notes"];
+	        this.points = this.convertValues(source["points"], Point);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

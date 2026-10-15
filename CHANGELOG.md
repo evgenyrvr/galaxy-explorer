@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0 — 2026-10-15
+
+V1, first part.
+
+- Quit button (✕) next to Open.
+- Region selection: sphere (r) or cylinder (R, |z|). Masses in Go — analytic for
+  spheroids and untilted discs, otherwise from a deterministic 60 000-point reference
+  sample (flagged as an estimate). Optional hiding of markers outside the region.
+- Observational profile import (CSV): Σ(R), ρ(r), Vc(r), M(<r) with units, 1σ errors,
+  evidence level and mandatory source; strict units, no Σ↔ρ conversion, radii in
+  kpc, pc or arcsec (with distance). Shown as points with error bars; saved in projects.
+- Preset comparison: total curves of another preset at the same M_total, dashed.
+- `galaxy.exe project.galaxy.json` opens a project from the command line.
+- Example import file: docs/examples/synthetic-surface-density.csv (synthetic values).
+
 ## 0.1.0 — 2026-10-15
 
 Stage 0 and MVP core.

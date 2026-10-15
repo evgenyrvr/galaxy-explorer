@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Quit } from '../wailsjs/runtime/runtime';
-import { api, arr, errorText, PresetInfo, profileRequest, Profiles, selection as toSel, Selection, SelectionReport, State } from './api';
+import { api, arr, Dataset, errorText, PresetInfo, profileRequest, Profiles, Region, regionActive, selection as toSel, Selection, SelectionReport, State } from './api';
 import { length, mass, parseMass, pct } from './format';
 import { CameraState, GalaxyScene, SceneStats } from './scene/GalaxyScene';
 import { BudgetActions, BudgetEditor } from './ui/BudgetEditor';
 import { Charts } from './ui/Charts';
 import { Inspector } from './ui/Inspector';
+import { RegionPanel } from './ui/RegionPanel';
 import { StructureTree } from './ui/StructureTree';
 
 type DataMode = 'all' | 'no-illustrative' | 'observed';
@@ -20,6 +21,9 @@ interface UIDoc {
   dataMode: DataMode;
   quality: number;
   showHalo: boolean;
+  region?: Region;
+  hideOutside?: boolean;
+  compareId?: string;
 }
 
 const QUALITIES = [0.25, 0.5, 1, 2];
@@ -44,6 +48,11 @@ export default function App() {
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showCharts, setShowCharts] = useState(true);
+  const [region, setRegion] = useState<Region>({ kind: '', rMin: 0, rMax: 10, zMax: 0 });
+  const [hideOutside, setHideOutside] = useState(true);
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [compareId, setCompareId] = useState('');
+  const [compare, setCompare] = useState<Profiles | null>(null);
   const pendingUI = useRef<UIDoc | null>(null);
 
   const notify = useCallback((text: string, kind: 'error' | 'info' = 'error') => {
@@ -67,10 +76,16 @@ export default function App() {
 
   // ---- initial load
   useEffect(() => {
-    api.ListPresets().then((p) => {
+    (async () => {
+      const p = await api.ListPresets();
       setPresets(p);
-      if (p.length) loadPreset(p[0].id);
-    }).catch((e) => notify(errorText(e)));
+      const start = await api.StartupProject().catch((e) => {
+        notify(errorText(e));
+        return null;
+      });
+      if (start) await applyProject(start);
+      else if (p.length) await loadPreset(p[0].id);
+    })().catch((e) => notify(errorText(e)));
   }, []);
 
   const loadPreset = async (id: string) => {
@@ -128,20 +143,38 @@ export default function App() {
   useEffect(() => scene.current?.setFilter(maskOf(filterTags), filterOr), [filterTags, filterOr, tagBit, state]);
   useEffect(() => scene.current?.setSelection(new Set(sel.components), maskOf(sel.tags)), [sel, tagBit, state]);
 
+  const regionOn = regionActive(region);
+  const fullSel: Selection = useMemo(() => ({ ...sel, region: regionOn ? region : undefined }), [sel, region, regionOn]);
+  useEffect(() => {
+    const kind = regionOn && hideOutside ? (region.kind === 'sphere' ? 1 : 2) : 0;
+    scene.current?.setRegion(kind, region.rMin, region.rMax, region.zMax);
+  }, [region, regionOn, hideOutside, state]);
+
   // ---- selection mass (computed in Go)
   useEffect(() => {
     if (!state) return;
-    if (sel.components.length + sel.tags.length === 0) return setReport(null);
-    api.SelectionMass(toSel(sel)).then(setReport).catch((e) => notify(errorText(e)));
-  }, [sel, state]);
+    if (sel.components.length + sel.tags.length === 0 && !regionOn) return setReport(null);
+    api.SelectionMass(toSel(fullSel)).then(setReport).catch((e) => notify(errorText(e)));
+  }, [fullSel, state]);
 
   // ---- profiles
-  const chartIds = sel.components.length ? sel.components : arr(report?.parts).map((p) => p.component);
+  const chartIds = sel.components.length ? sel.components : sel.tags.length ? arr(report?.parts).map((p) => p.component) : [];
   const matterLabels = useMemo(() => Object.fromEntries(arr(state?.categories).map((c) => [c.id, c.label])), [state]);
   useEffect(() => {
     if (!state) return;
     api.Profiles(profileRequest([])).then(setProfiles).catch((e) => notify(errorText(e)));
   }, [state]);
+  useEffect(() => {
+    if (!state || !compareId || compareId === state.preset.id) return setCompare(null);
+    api.CompareProfiles(compareId).then(setCompare).catch((e) => notify(errorText(e)));
+  }, [state, compareId]);
+  const importProfile = async () => {
+    try {
+      setDatasets(await api.ImportProfile());
+    } catch (e) {
+      notify(errorText(e));
+    }
+  };
 
   // ---- budget actions
   const run = async (p: Promise<State>) => {
@@ -235,6 +268,7 @@ export default function App() {
   // ---- files
   const uiDoc = (): UIDoc => ({
     camera: scene.current!.getCamera(), visible: [...visible], selection: sel, filterTags, filterOr, dataMode, quality, showHalo,
+    region, hideOutside, compareId,
   });
   const save = async () => {
     try {
@@ -247,7 +281,13 @@ export default function App() {
   const open = async () => {
     try {
       const r = await api.OpenProject();
-      if (!r) return;
+      if (r) await applyProject(r);
+    } catch (e) {
+      notify(errorText(e));
+    }
+  };
+  const applyProject = async (r: Awaited<ReturnType<typeof api.OpenProject>>) => {
+    try {
       const ui: Partial<UIDoc> = r.ui ? JSON.parse(r.ui) : {};
       setVisible(new Set(ui.visible ?? arr(r.state.components).map((c) => c.id)));
       setSel(ui.selection ?? { components: [], tags: [] });
@@ -256,6 +296,10 @@ export default function App() {
       setDataMode(ui.dataMode ?? 'all');
       setQuality(ui.quality ?? 1);
       setShowHalo(ui.showHalo ?? true);
+      setRegion(ui.region ?? { kind: '', rMin: 0, rMax: 10, zMax: 0 });
+      setHideOutside(ui.hideOutside ?? true);
+      setCompareId(ui.compareId ?? '');
+      setDatasets(await api.Datasets());
       if (ui.camera) pendingUI.current = ui as UIDoc;
       setState(r.state);
       notify(`Opened ${r.path}`, 'info');
@@ -273,7 +317,7 @@ export default function App() {
   };
   const csv = async () => {
     try {
-      const p = await api.ExportMassCSV(toSel(sel));
+      const p = await api.ExportMassCSV(toSel(fullSel));
       if (p) notify(`Saved ${p}`, 'info');
     } catch (e) {
       notify(errorText(e));
@@ -349,7 +393,9 @@ export default function App() {
             filterTags={filterTags} setFilterTags={setFilterTags} filterOr={filterOr} setFilterOr={setFilterOr}
             onIsolate={() => setVisible(new Set(sel.components))}
           />
-        )}</aside>
+        )}
+          <RegionPanel region={region} setRegion={setRegion} hideOutside={hideOutside} setHideOutside={setHideOutside} />
+        </aside>
 
         <section className="center">
           <div className="scene" ref={sceneHost}>
@@ -364,7 +410,12 @@ export default function App() {
               </div>
             )}
           </div>
-          {showCharts && state && <Charts profiles={profiles} components={arr(state.components)} show={chartIds} matterLabels={matterLabels} />}
+          {showCharts && state && <Charts
+            profiles={profiles} compare={compare} compareName={presets.find((x) => x.id === compareId)?.name ?? ''}
+            components={arr(state.components)} show={chartIds} matterLabels={matterLabels}
+            datasets={datasets} presets={presets} currentPreset={state.preset.id} compareId={compareId} setCompareId={setCompareId}
+            onImport={importProfile} onRemoveDataset={(id) => api.RemoveDataset(id).then(setDatasets)}
+          />}
         </section>
 
         <aside className="right">
@@ -375,7 +426,7 @@ export default function App() {
           </div>
           <div className="right-body">
             {state && tab === 'inspector' && (
-              <Inspector state={state} selection={sel} report={report}
+              <Inspector state={state} selection={sel} report={report} region={regionOn ? region : null}
                 onShare={(c, k, s) => run(api.SetShare(c, k, s))} onShareLock={(c, k, l) => run(api.SetShareLocked(c, k, l))} />
             )}
             {state && tab === 'budget' && <BudgetEditor state={state} a={actions} />}

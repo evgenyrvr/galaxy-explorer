@@ -225,6 +225,30 @@ func (d *Disc) SurfaceDensity(R float64) float64 {
 
 func (d *Disc) CylindricalFraction(R float64) float64 { return d.cyl.At(R) }
 
+// SlabFraction returns the mass fraction with rmin ≤ R < rmax and |z| < zmax
+// (zmax ≤ 0: no height limit). ok is false for tilted discs, whose disc
+// frame differs from the galaxy frame.
+func (d *Disc) SlabFraction(rmin, rmax, zmax float64) (f float64, ok bool) {
+	if d.rotated {
+		return 0, false
+	}
+	if zmax <= 0 {
+		return d.cyl.At(rmax) - d.cyl.At(rmin), true
+	}
+	lo, hi := math.Max(0, rmin), math.Min(rmax, d.rmax)
+	if hi <= lo {
+		return 0, true
+	}
+	const n = 4000
+	h := (hi - lo) / n
+	sum := 0.0
+	for j := 0; j < n; j++ {
+		R := lo + (float64(j)+0.5)*h
+		sum += 2 * math.Pi * R * d.sigmaShape(R) * math.Tanh(zmax/d.scaleHeight(R))
+	}
+	return clamp01(sum * h * d.norm), true
+}
+
 // MidplaneVc2PerGM implements the Freeman (1970) razor-thin exponential disc
 // rotation curve: Vc² = 4πGΣ0 Rd y² [I0(y)K0(y) − I1(y)K1(y)], y = R/(2Rd).
 // Only valid for the pure exponential shape; the truncation beyond RMax is

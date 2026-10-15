@@ -14,6 +14,10 @@ uniform float uFilterOr;    // 1: visible OR tag; 0: visible AND tag
 uniform float uHighlightMask;
 uniform float uSelected;    // whole component selected
 uniform float uDim;         // something else is selected
+uniform int uRegion;        // 0 none, 1 sphere, 2 cylinder: hide markers outside
+uniform float uRMin;
+uniform float uRMax;
+uniform float uZMax;        // ≤ 0: unbounded
 
 out float vAlpha;
 out float vHi;
@@ -29,6 +33,13 @@ void main() {
     shown = uVisible > 0.5 || (t & fm) != 0u;
   } else {
     shown = uVisible > 0.5 && inTag;
+  }
+  if (shown && uRegion == 1) {
+    float r = length(position);
+    shown = r >= uRMin && r < uRMax;
+  } else if (shown && uRegion == 2) {
+    float R = length(position.xy);
+    shown = R >= uRMin && R < uRMax && (uZMax <= 0.0 || abs(position.z) < uZMax);
   }
   if (!shown) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);

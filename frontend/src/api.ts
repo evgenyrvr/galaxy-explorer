@@ -1,6 +1,6 @@
 // Thin client over the Go bindings. All mass logic lives in Go.
 import * as Go from '../wailsjs/go/main/App';
-import { galaxy } from '../wailsjs/go/models';
+import { galaxy, obsdata } from '../wailsjs/go/models';
 import { BrowserOpenURL } from '../wailsjs/runtime/runtime';
 
 export type State = galaxy.State;
@@ -9,10 +9,23 @@ export type TagState = galaxy.TagState;
 export type SelectionReport = galaxy.SelectionReport;
 export type Profiles = galaxy.Profiles;
 export type PresetInfo = galaxy.PresetInfo;
+export type Dataset = obsdata.Dataset;
+
+export interface Region {
+  kind: '' | 'sphere' | 'cylinder';
+  rMin: number;
+  rMax: number;
+  zMax: number; // ≤ 0: unbounded
+}
 
 export interface Selection {
   components: string[];
   tags: string[];
+  region?: Region;
+}
+
+export function regionActive(r?: Region | null): r is Region {
+  return !!r && (r.kind === 'sphere' || r.kind === 'cylinder') && r.rMax > r.rMin;
 }
 
 export const api = Go;

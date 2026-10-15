@@ -58,6 +58,7 @@ export class GalaxyScene {
   private filterOr = false;
   private highlightMask = 0;
   private selected = new Set<string>();
+  private region: { kind: number; rMin: number; rMax: number; zMax: number } = { kind: 0, rMin: 0, rMax: 0, zMax: 0 };
   private haloGroup = new THREE.Group();
   private labels = new Map<string, { el: HTMLDivElement; pos: THREE.Vector3 }>();
   private gizmoScene = new THREE.Scene();
@@ -203,6 +204,10 @@ export class GalaxyScene {
           uHighlightMask: { value: 0 },
           uSelected: { value: 0 },
           uDim: { value: 0 },
+          uRegion: { value: 0 },
+          uRMin: { value: 0 },
+          uRMax: { value: 0 },
+          uZMax: { value: 0 },
           uColor: { value: new THREE.Color(c.visual.color) },
           uHiColor: { value: new THREE.Color('#7fe3ff') },
           uOpacity: { value: c.visual.opacity },
@@ -270,6 +275,25 @@ export class GalaxyScene {
     this.applyState();
   }
 
+  /** Hides markers outside a sphere (kind 1) or cylinder slab (kind 2); kind 0 disables. */
+  setRegion(kind: number, rMin: number, rMax: number, zMax: number) {
+    this.region = { kind, rMin, rMax, zMax };
+    this.applyState();
+  }
+
+  private inRegion(x: number, y: number, z: number): boolean {
+    const g = this.region;
+    if (g.kind === 1) {
+      const r = Math.hypot(x, y, z);
+      return r >= g.rMin && r < g.rMax;
+    }
+    if (g.kind === 2) {
+      const R = Math.hypot(x, y);
+      return R >= g.rMin && R < g.rMax && (g.zMax <= 0 || Math.abs(z) < g.zMax);
+    }
+    return true;
+  }
+
   private applyState() {
     const anySel = this.selected.size > 0 || this.highlightMask !== 0;
     for (const l of this.layers.values()) {
@@ -288,6 +312,10 @@ export class GalaxyScene {
       u.uHighlightMask.value = this.highlightMask;
       u.uSelected.value = this.selected.has(l.id) ? 1 : 0;
       u.uDim.value = anySel && !this.selected.has(l.id) ? 1 : 0;
+      u.uRegion.value = this.region.kind;
+      u.uRMin.value = this.region.rMin;
+      u.uRMax.value = this.region.rMax;
+      u.uZMax.value = this.region.zMax;
       // Skip draw calls for layers that cannot show anything.
       l.points.visible = vis || (this.filterMask !== 0 && this.filterOr && this.layerHasTag(l, this.filterMask));
     }
@@ -305,17 +333,19 @@ export class GalaxyScene {
     for (const l of this.layers.values()) {
       const vis = this.visible.has(l.id);
       if (l.sprite) {
-        n += vis ? 1 : 0;
+        n += vis && this.inRegion(0, 0, 0) ? 1 : 0;
         continue;
       }
-      if (!l.tags) continue;
-      if (this.filterMask === 0) {
+      if (!l.tags || !l.points) continue;
+      if (this.filterMask === 0 && this.region.kind === 0) {
         n += vis ? l.count : 0;
         continue;
       }
+      const pos = l.points.geometry.getAttribute('position').array as Float32Array;
       for (let i = 0; i < l.tags.length; i++) {
-        const inTag = (l.tags[i] & this.filterMask) !== 0;
-        if (this.filterOr ? vis || inTag : vis && inTag) n++;
+        const inTag = this.filterMask === 0 || (l.tags[i] & this.filterMask) !== 0;
+        const shown = this.filterMask === 0 ? vis : this.filterOr ? vis || inTag : vis && inTag;
+        if (shown && this.inRegion(pos[3 * i], pos[3 * i + 1], pos[3 * i + 2])) n++;
       }
     }
     return n;
@@ -387,6 +417,7 @@ export class GalaxyScene {
         const inTag = (l.tags[h.index] & this.filterMask) !== 0;
         if (this.filterOr ? !(vis || inTag) : !(vis && inTag)) continue;
       } else if (!vis) continue;
+      if (!this.inRegion(h.point.x, h.point.y, h.point.z)) continue;
       const c = this.comps.get(id);
       // Prefer compact markers (stars, clusters) over diffuse fields at equal angular distance.
       const diffuse = c && (c.visual.style === 'gas' || c.visual.style === 'dm') ? 3 : 1;

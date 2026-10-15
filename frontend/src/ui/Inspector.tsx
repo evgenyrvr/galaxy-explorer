@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { arr, ComponentState, openURL, Selection, SelectionReport, State } from '../api';
+import { arr, ComponentState, openURL, Region, Selection, SelectionReport, State } from '../api';
 import { EVIDENCE_LABEL, length, mass, pct, sci } from '../format';
 
 interface Props {
   state: State;
   selection: Selection;
   report: SelectionReport | null;
+  region: Region | null;
   onShare: (cat: string, comp: string, share: number) => void;
   onShareLock: (cat: string, comp: string, locked: boolean) => void;
 }
@@ -14,15 +15,20 @@ interface Props {
 // "≈ number of stars" estimate.
 const MEAN_STELLAR_MASS = 0.5;
 
-export function Inspector({ state, selection, report, onShare, onShareLock }: Props) {
+export function Inspector({ state, selection, report, region, onShare, onShareLock }: Props) {
   const comps = new Map(arr(state.components).map((c) => [c.id, c]));
   const cats = new Map(arr(state.categories).map((c) => [c.id, c]));
   const tags = new Map(arr(state.tags).map((t) => [t.id, t]));
   const empty = selection.components.length === 0 && selection.tags.length === 0;
 
-  if (empty) return <GalaxySummary state={state} />;
+  if (empty && !region) return <GalaxySummary state={state} />;
 
-  const single = selection.components.length === 1 && selection.tags.length === 0 ? comps.get(selection.components[0]) : undefined;
+  const single = !region && selection.components.length === 1 && selection.tags.length === 0 ? comps.get(selection.components[0]) : undefined;
+  const regionText = region
+    ? region.kind === 'sphere'
+      ? `${region.rMin} ≤ r < ${region.rMax} kpc`
+      : `${region.rMin} ≤ R < ${region.rMax} kpc${region.zMax > 0 ? `, |z| < ${region.zMax} kpc` : ''}`
+    : '';
   const singleTag = selection.tags.length === 1 && selection.components.length === 0 ? tags.get(selection.tags[0]) : undefined;
 
   return (
@@ -31,10 +37,11 @@ export function Inspector({ state, selection, report, onShare, onShareLock }: Pr
         Selection
         {single && <span className={`badge ev-${single.evidence}`}>{EVIDENCE_LABEL[single.evidence]}</span>}
       </div>
+      {region && <div className="muted small">{empty ? 'All matter' : 'Selection'} inside {regionText}</div>}
       <div className="big-number">{report ? mass(report.mass) : '…'}</div>
       <div className="muted">
         {report ? `${pct(report.fractionOfTotal)} of M200c` : ''}
-        {report && !report.exact && ' · tag fraction estimated from the reference sample'}
+        {report && !report.exact && ' · partly estimated from a 60 000-point reference sample'}
       </div>
 
       {single && <ComponentDetails c={single} state={state} onShare={onShare} onShareLock={onShareLock} categoryLabel={cats.get(single.matter)?.label ?? single.matter} />}

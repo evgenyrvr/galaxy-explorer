@@ -30,6 +30,7 @@ type Model struct {
 	tagBit    map[string]uint
 	r200c     float64
 	partCache map[string][]byte
+	refCache  map[string]refSample
 }
 
 // NewModel builds a model from a preset with its default budget.
@@ -198,6 +199,7 @@ func (m *Model) Replace(b budget.Budget, seed int64) error {
 		m.seed = seed
 		m.comps = nil
 		m.partCache = map[string][]byte{}
+		m.refCache = nil
 	}
 	if err := m.setBudget(b); err != nil {
 		return err
@@ -409,6 +411,9 @@ func (m *Model) tagFraction(c *Component, tag string) (float64, bool) {
 type Selection struct {
 	Components []string `json:"components"`
 	Tags       []string `json:"tags"`
+	// Region, if active, intersects the selection with a volume. With an
+	// empty component/tag list the region alone selects all components.
+	Region *Region `json:"region,omitempty"`
 }
 
 // SelectionPart is one component's contribution to a selection.
@@ -439,21 +444,34 @@ func (m *Model) SelectionMass(sel Selection) SelectionReport {
 	for _, id := range sel.Components {
 		whole[id] = true
 	}
+	region := sel.Region
+	if !region.Active() {
+		region = nil
+	}
+	everything := region != nil && len(sel.Components) == 0 && len(sel.Tags) == 0
 	r := SelectionReport{ByMatter: map[string]float64{}, Exact: true}
 	for _, c := range m.comps {
+		isWhole := whole[c.ID] || everything
+		local := map[int]bool{}
 		f := 0.0
-		if whole[c.ID] {
+		if isWhole {
 			f = 1
 		} else {
 			for _, t := range sel.Tags {
 				tf, exact := m.tagFraction(c, t)
 				if tf == 1 {
+					isWhole = true
 					f = 1
 					break
 				}
-				f += tf
 				if tf > 0 {
+					f += tf
 					r.Exact = r.Exact && exact
+					for k, name := range c.Dist.TagNames() {
+						if name == t {
+							local[k+1] = true
+						}
+					}
 				}
 			}
 			f = math.Min(f, 1)
@@ -461,11 +479,23 @@ func (m *Model) SelectionMass(sel Selection) SelectionReport {
 		if f == 0 {
 			continue
 		}
+		if region != nil {
+			rf, exact := m.regionFraction(c, isWhole, local, region)
+			f = rf
+			r.Exact = r.Exact && exact
+			if f == 0 {
+				continue
+			}
+		}
 		mass := f * m.componentMass(c)
 		r.Parts = append(r.Parts, SelectionPart{Component: c.ID, Matter: string(c.Matter), Fraction: f, Mass: mass})
 		r.Mass += mass
 		r.ByMatter[string(c.Matter)] += mass
-		r.InsideR200c += mass * c.Dist.SphericalFraction(m.r200c)
+		inside := c.Dist.SphericalFraction(m.r200c)
+		if region != nil && region.Kind == "sphere" && region.RMax <= m.r200c {
+			inside = 1
+		}
+		r.InsideR200c += mass * math.Min(1, inside)
 	}
 	r.FractionOfTotal = r.Mass / m.budget.TotalMass
 	return r

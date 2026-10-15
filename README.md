@@ -4,7 +4,7 @@ Interactive desktop 3D atlas of galaxy structure with exact, single-counted
 mass bookkeeping. Go owns the physics and the mass budget; Three.js renders
 representative markers; Wails provides the Windows desktop shell.
 
-**Status:** Stage 0 + MVP core (v0.1.0). See [CHANGELOG.md](CHANGELOG.md) and
+**Status:** MVP + first part of V1 (v0.2.0). See [CHANGELOG.md](CHANGELOG.md) and
 the acceptance matrix in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
 
 Specification and role skills (Russian): [TECHNICAL_SPECIFICATION.md](TECHNICAL_SPECIFICATION.md),
@@ -27,7 +27,24 @@ Specification and role skills (Russian): [TECHNICAL_SPECIFICATION.md](TECHNICAL_
   assign remainder, undo/redo; per-component shares in the inspector.
 - Plots: `M(<r)`, `ρ(r)` [M☉/pc³], `Σ(R)` [M☉/pc²], `Vc(r)`, `f_b(<r)` — never mixing
   surface and volume density.
-- Save/load project JSON, PNG screenshot, mass CSV.
+- Region selection: sphere `r` or cylinder `R` with `|z|` limit; masses computed in Go.
+- Import of observational radial profiles (CSV with units, errors, evidence and source),
+  overlaid as points with error bars; comparison with another preset on the same axes.
+- Save/load project JSON (also `galaxy.exe file.galaxy.json`), PNG screenshot, mass CSV.
+
+### Profile CSV format
+
+```text
+# quantity: surface_density      (volume_density | circular_velocity | enclosed_mass)
+# unit: Msun/pc2                 (Msun/kpc2; Msun/pc3, Msun/kpc3; km/s; Msun)
+# radius_unit: kpc               (pc | arcsec, with # distance_kpc: 785)
+# evidence: OBSERVED             (INFERRED | RECONSTRUCTED | ILLUSTRATIVE)
+# source: Author et al. 2020, Journal 1, 2   (required)
+r,value,err
+2.0,410,35
+```
+
+See [docs/examples/synthetic-surface-density.csv](docs/examples/synthetic-surface-density.csv) (synthetic numbers).
 
 ## Physics model (short)
 
@@ -70,6 +87,7 @@ internal/ontology         matter types, evidence levels, structural tags
 internal/budget           mass budget engine, validation, undo/redo
 internal/galaxy           model: components, selection mass, profiles, markers, sources
 internal/presets          M31-inspired and M87-inspired presets
+internal/obsdata          observational profile import
 internal/project          project file format and CSV export
 frontend/src/scene        Three.js scene, shaders, picking
 frontend/src/ui           tree, inspector, budget editor, charts

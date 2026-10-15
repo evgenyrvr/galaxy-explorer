@@ -12,6 +12,7 @@ import (
 
 	"galaxy/internal/budget"
 	"galaxy/internal/galaxy"
+	"galaxy/internal/obsdata"
 	"galaxy/internal/units"
 )
 
@@ -25,23 +26,24 @@ const (
 // is owned by Go; UI holds camera, visibility, filters and selection as an
 // opaque document owned by the frontend.
 type File struct {
-	Schema         string          `json:"schema"`
-	Version        int             `json:"version"`
-	App            string          `json:"app"`
-	SavedAt        string          `json:"savedAt"`
-	PresetID       string          `json:"presetId"`
-	PresetVersion  string          `json:"presetVersion"`
-	DataMode       string          `json:"dataMode"`
-	HaloDefinition string          `json:"haloDefinition"`
-	Cosmology      units.Cosmology `json:"cosmology"`
-	Seed           int64           `json:"seed"`
-	Budget         budget.Budget   `json:"budget"`
-	Sources        []string        `json:"sources"`
-	UI             json.RawMessage `json:"ui,omitempty"`
+	Schema         string            `json:"schema"`
+	Version        int               `json:"version"`
+	App            string            `json:"app"`
+	SavedAt        string            `json:"savedAt"`
+	PresetID       string            `json:"presetId"`
+	PresetVersion  string            `json:"presetVersion"`
+	DataMode       string            `json:"dataMode"`
+	HaloDefinition string            `json:"haloDefinition"`
+	Cosmology      units.Cosmology   `json:"cosmology"`
+	Seed           int64             `json:"seed"`
+	Budget         budget.Budget     `json:"budget"`
+	Sources        []string          `json:"sources"`
+	Datasets       []obsdata.Dataset `json:"datasets,omitempty"`
+	UI             json.RawMessage   `json:"ui,omitempty"`
 }
 
 // New builds a project file from a model.
-func New(m *galaxy.Model, app string, ui json.RawMessage) File {
+func New(m *galaxy.Model, app string, datasets []obsdata.Dataset, ui json.RawMessage) File {
 	s := m.Snapshot()
 	var src []string
 	for _, x := range s.Sources {
@@ -50,7 +52,7 @@ func New(m *galaxy.Model, app string, ui json.RawMessage) File {
 	return File{
 		Schema: Schema, Version: Version, App: app, SavedAt: time.Now().UTC().Format(time.RFC3339),
 		PresetID: s.Preset.ID, PresetVersion: s.Preset.Version, DataMode: s.Preset.Kind,
-		HaloDefinition: "M200c", Cosmology: s.Cosmology, Seed: m.Seed(), Budget: m.Budget(), Sources: src, UI: ui,
+		HaloDefinition: "M200c", Cosmology: s.Cosmology, Seed: m.Seed(), Budget: m.Budget(), Sources: src, Datasets: datasets, UI: ui,
 	}
 }
 
@@ -73,7 +75,8 @@ func Parse(data []byte) (File, error) {
 }
 
 // MassCSV renders the component masses and an optional selection summary.
-func MassCSV(s galaxy.State, sel *galaxy.SelectionReport) ([]byte, error) {
+// region, if active, is described in the selection header.
+func MassCSV(s galaxy.State, sel *galaxy.SelectionReport, region *galaxy.Region) ([]byte, error) {
 	var buf bytes.Buffer
 	w := csv.NewWriter(&buf)
 	g := func(x float64) string { return strconv.FormatFloat(x, 'g', 10, 64) }
@@ -92,7 +95,11 @@ func MassCSV(s galaxy.State, sel *galaxy.SelectionReport) ([]byte, error) {
 	}
 	if sel != nil {
 		_ = w.Write(nil)
-		_ = w.Write([]string{"# selection", "mass_msun", g(sel.Mass), "fraction_of_total", g(sel.FractionOfTotal), "exact", strconv.FormatBool(sel.Exact)})
+		hdr := []string{"# selection", "mass_msun", g(sel.Mass), "fraction_of_total", g(sel.FractionOfTotal), "exact", strconv.FormatBool(sel.Exact)}
+		if region.Active() {
+			hdr = append(hdr, "region="+region.Kind, "r_min_kpc="+g(region.RMin), "r_max_kpc="+g(region.RMax), "z_max_kpc="+g(region.ZMax))
+		}
+		_ = w.Write(hdr)
 		_ = w.Write([]string{"selection_component", "matter", "fraction_of_component", "mass_msun"})
 		for _, p := range sel.Parts {
 			_ = w.Write([]string{p.Component, p.Matter, g(p.Fraction), g(p.Mass)})
