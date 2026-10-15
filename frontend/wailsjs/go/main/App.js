@@ -30,6 +30,10 @@ export function LoadPreset(arg1) {
   return window['go']['main']['App']['LoadPreset'](arg1);
 }
 
+export function LogFrontendError(arg1) {
+  return window['go']['main']['App']['LogFrontendError'](arg1);
+}
+
 export function Normalize() {
   return window['go']['main']['App']['Normalize']();
 }

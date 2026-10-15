@@ -18,6 +18,8 @@ export function ListPresets():Promise<Array<galaxy.PresetInfo>>;
 
 export function LoadPreset(arg1:string):Promise<galaxy.State>;
 
+export function LogFrontendError(arg1:string):Promise<void>;
+
 export function Normalize():Promise<galaxy.State>;
 
 export function OpenProject():Promise<main.OpenResult>;

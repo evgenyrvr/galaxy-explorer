@@ -3,6 +3,7 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import { arr, ComponentState, Dataset, PresetInfo, Profiles } from '../api';
 import { sup } from '../format';
+import { LogFrontendError } from '../../wailsjs/go/main/App';
 
 type Kind = 'enclosed' | 'density' | 'surface' | 'vc' | 'fb';
 
@@ -167,13 +168,21 @@ export function Charts(p: Props) {
       plot.current = new uPlot(opts, data, el);
     } catch (e) {
       el.textContent = `Plot error: ${String(e)}`;
+      LogFrontendError(`plot create: ${String(e)} ${(e as Error).stack ?? ''}`).catch(() => {});
       return;
     }
     setLegend([
       ...shown.map((s) => ({ label: s.label, color: s.color, dash: !!s.dash })),
       ...relevant.map((d, i) => ({ label: `${d.name} [${d.evidence.toLowerCase()}]`, color: DATA_COLORS[i % DATA_COLORS.length], points: true })),
     ]);
-    const ro = new ResizeObserver(() => plot.current?.setSize({ width: Math.max(200, el.clientWidth - 16), height: Math.max(100, el.clientHeight) }));
+    const ro = new ResizeObserver(() => {
+      try {
+        plot.current?.setSize({ width: Math.max(200, el.clientWidth - 16), height: Math.max(100, el.clientHeight) });
+      } catch (e) {
+        console.error(e);
+        LogFrontendError(`plot resize: ${String(e)} ${(e as Error).stack ?? ''}`).catch(() => {});
+      }
+    });
     ro.observe(el);
     return () => {
       ro.disconnect();

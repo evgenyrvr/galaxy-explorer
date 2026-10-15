@@ -206,9 +206,16 @@ export class GalaxyScene {
     return hits;
   }
 
+  /** True while the scene has no usable area (e.g. plots expanded). */
+  private hidden = false;
+
   private resize() {
-    const w = this.container.clientWidth || 1;
-    const h = this.container.clientHeight || 1;
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    // A collapsed scene is not resized to a degenerate 1-pixel viewport and
+    // not rendered at all; it resumes when it gets its area back.
+    this.hidden = w < 8 || h < 8;
+    if (this.hidden) return;
     this.renderer.setSize(w, h, false);
     this.renderer.domElement.style.width = `${w}px`;
     this.renderer.domElement.style.height = `${h}px`;
@@ -608,6 +615,10 @@ export class GalaxyScene {
 
   private loop = () => {
     this.raf = requestAnimationFrame(this.loop);
+    if (this.hidden) {
+      this.fps = 0;
+      return;
+    }
     this.controls.update();
     // Keep the near plane proportional to the zoom for depth precision.
     const dist = this.camera.position.distanceTo(this.controls.target);

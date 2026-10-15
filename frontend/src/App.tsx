@@ -480,7 +480,7 @@ export default function App() {
         </span>
         <span>Data: model / {dataMode}</span>
         <span>View distance: {stats ? length(stats.distance) : '—'}</span>
-        <span>{stats ? `${stats.fps.toFixed(0)} FPS` : ''}</span>
+        <span>{stats ? (chartsMax && showCharts ? 'scene paused' : `${stats.fps.toFixed(0)} FPS`) : ''}</span>
         <button className="link" onClick={() => setShowCharts(!showCharts)}>{showCharts ? 'Hide plots' : 'Show plots'}</button>
       </footer>
 

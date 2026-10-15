@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2 — 2026-10-15
+
+- Fix: expanding the plots to the whole window froze the window (≈2 FPS, empty plot).
+  The collapsed 3D scene kept rendering into a degenerate 1-pixel viewport; it is now
+  paused while it has no area and resumes on Collapse with the same camera.
+- Frontend errors are appended to %TEMP%\galaxy-explorer.log for diagnosis.
+
 ## 0.3.1 — 2026-10-15
 
 - Side panels can be hidden with the ‹ › handles on the scene edges to enlarge the scene.

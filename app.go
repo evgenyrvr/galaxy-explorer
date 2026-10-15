@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -23,7 +24,7 @@ import (
 )
 
 // AppVersion is written into saved projects.
-const AppVersion = "0.3.1"
+const AppVersion = "0.3.2"
 
 const defaultSeed = 20261015
 
@@ -431,4 +432,15 @@ func (a *App) CompareProfiles(presetID string) (galaxy.Profiles, error) {
 		return galaxy.Profiles{}, err
 	}
 	return m.Profiles(galaxy.ProfileRequest{RMax: cur.Snapshot().R200c}), nil
+}
+
+// LogFrontendError appends a frontend error to galaxy-explorer.log in the
+// user's temp directory, so failures are diagnosable in release builds.
+func (a *App) LogFrontendError(msg string) {
+	f, err := os.OpenFile(filepath.Join(os.TempDir(), "galaxy-explorer.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintln(f, time.Now().Format(time.RFC3339), "frontend:", msg)
 }
