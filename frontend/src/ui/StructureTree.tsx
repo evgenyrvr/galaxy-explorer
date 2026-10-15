@@ -129,7 +129,7 @@ export function StructureTree(p: Props) {
           })}
         </div>
       ))}
-      <div className="hint">Click to select · Ctrl/Shift to add · right-click in the scene for actions. Labels never add mass: their mass is the sum of the owners' matter.</div>
+      <div className="hint">Click to select · Ctrl/Shift to add · Alt+drag in the scene for box selection · right-click for actions. Labels never add mass: their mass is the sum of the owners' matter.</div>
     </div>
   );
 }

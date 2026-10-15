@@ -41,6 +41,14 @@ export interface SceneStats {
 
 export type PickHandler = (id: string | null, ev: MouseEvent) => void;
 
+/** Markers of one component inside a screen rectangle. */
+export interface BoxHit {
+  id: string;
+  inside: number;
+  shown: number;
+}
+export type BoxHandler = (hits: BoxHit[], additive: boolean) => void;
+
 export class GalaxyScene {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
@@ -65,6 +73,8 @@ export class GalaxyScene {
   private gizmoCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 10);
   private pickHandler: PickHandler | null = null;
   private contextHandler: PickHandler | null = null;
+  private boxHandler: BoxHandler | null = null;
+  private box: { x0: number; y0: number; el: HTMLDivElement } | null = null;
   private downAt: { x: number; y: number } | null = null;
   private resizeObserver: ResizeObserver;
   onError: (msg: string) => void = () => {};
@@ -91,7 +101,39 @@ export class GalaxyScene {
     this.resizeObserver.observe(container);
     this.resize();
     const el = this.renderer.domElement;
-    el.addEventListener('pointerdown', (e) => (this.downAt = { x: e.clientX, y: e.clientY }));
+    // Alt + drag: box selection (the orbit controls are paused meanwhile).
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button === 0 && e.altKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        this.controls.enabled = false;
+        const div = document.createElement('div');
+        div.className = 'box-select';
+        this.container.appendChild(div);
+        this.box = { x0: e.clientX, y0: e.clientY, el: div };
+        el.setPointerCapture(e.pointerId);
+        return;
+      }
+      this.downAt = { x: e.clientX, y: e.clientY };
+    }, { capture: true });
+    el.addEventListener('pointermove', (e) => {
+      if (!this.box) return;
+      const r = this.container.getBoundingClientRect();
+      const x = Math.min(this.box.x0, e.clientX) - r.left, y = Math.min(this.box.y0, e.clientY) - r.top;
+      Object.assign(this.box.el.style, { left: `${x}px`, top: `${y}px`, width: `${Math.abs(e.clientX - this.box.x0)}px`, height: `${Math.abs(e.clientY - this.box.y0)}px` });
+    });
+    el.addEventListener('pointerup', (e) => {
+      if (this.box) {
+        const b = this.box;
+        this.box = null;
+        b.el.remove();
+        this.controls.enabled = true;
+        if (Math.abs(e.clientX - b.x0) > 3 && Math.abs(e.clientY - b.y0) > 3) {
+          this.boxHandler?.(this.boxSelect(b.x0, b.y0, e.clientX, e.clientY), e.ctrlKey || e.shiftKey || e.metaKey);
+        }
+        return;
+      }
+    }, { capture: true });
     el.addEventListener('pointerup', (e) => {
       if (!this.downAt || e.button !== 0) return;
       const moved = Math.hypot(e.clientX - this.downAt.x, e.clientY - this.downAt.y);
@@ -121,6 +163,47 @@ export class GalaxyScene {
 
   onContext(h: PickHandler) {
     this.contextHandler = h;
+  }
+
+  onBox(h: BoxHandler) {
+    this.boxHandler = h;
+  }
+
+  /** Counts drawn markers of each component inside a client-space rectangle. */
+  private boxSelect(x0: number, y0: number, x1: number, y1: number): BoxHit[] {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const toNdc = (x: number, y: number) => [((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1];
+    const [ax, ay] = toNdc(Math.min(x0, x1), Math.max(y0, y1));
+    const [bx, by] = toNdc(Math.max(x0, x1), Math.min(y0, y1));
+    this.camera.updateMatrixWorld();
+    const m = new THREE.Matrix4().multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse).elements;
+    const hits: BoxHit[] = [];
+    for (const l of this.layers.values()) {
+      const vis = this.visible.has(l.id);
+      if (l.sprite) {
+        if (!vis) continue;
+        const p = new THREE.Vector3(0, 0, 0).project(this.camera);
+        hits.push({ id: l.id, shown: 1, inside: p.x >= ax && p.x <= bx && p.y >= ay && p.y <= by && p.z < 1 ? 1 : 0 });
+        continue;
+      }
+      if (!l.points || !l.tags || !l.points.visible) continue;
+      const pos = l.points.geometry.getAttribute('position').array as Float32Array;
+      let inside = 0, shown = 0;
+      for (let i = 0; i < l.tags.length; i++) {
+        const inTag = this.filterMask === 0 || (l.tags[i] & this.filterMask) !== 0;
+        const ok = this.filterMask === 0 ? vis : this.filterOr ? vis || inTag : vis && inTag;
+        const x = pos[3 * i], y = pos[3 * i + 1], z = pos[3 * i + 2];
+        if (!ok || !this.inRegion(x, y, z)) continue;
+        shown++;
+        const w = m[3] * x + m[7] * y + m[11] * z + m[15];
+        if (w <= 0) continue;
+        const px = (m[0] * x + m[4] * y + m[8] * z + m[12]) / w;
+        const py = (m[1] * x + m[5] * y + m[9] * z + m[13]) / w;
+        if (px >= ax && px <= bx && py >= ay && py <= by) inside++;
+      }
+      if (shown > 0) hits.push({ id: l.id, inside, shown });
+    }
+    return hits;
   }
 
   private resize() {

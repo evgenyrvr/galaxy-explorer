@@ -15,6 +15,9 @@
 - "Modified reconstruction" badge when an observational preset's budget is edited;
   data mode "observed + inferred".
 - Profile import: asymmetric errors (err_minus, err_plus), equal radii, text columns.
+- Box selection: Alt + drag in the scene selects every component with ≥ 1% of its drawn
+  markers inside the rectangle (Ctrl/Shift adds to the selection).
+- Script tools/extract_m31.py reproduces the bundled tables from the arXiv sources.
 
 ## 0.2.0 — 2026-10-15
 

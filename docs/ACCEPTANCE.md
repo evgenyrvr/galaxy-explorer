@@ -20,5 +20,7 @@
 
 Region selection (sphere r, cylinder R with |z|): `TestRegionSelection` (analytic disc fraction checked against 1 − (1 + x)e⁻ˣ).
 
-Not yet covered: box selection on screen,
+Box selection on screen: Alt + drag (checked in the running app).
+
+Not yet covered:
 Undo/Redo of visibility (only the budget is undoable), visual golden tests.

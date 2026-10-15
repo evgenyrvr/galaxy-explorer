@@ -151,3 +151,5 @@ input.num.short { width: 56px; }
 .banner.subtle { top: auto; bottom: 40px; background: rgba(16, 32, 48, 0.9); border-color: #2a4a70; color: #b9d4f5; }
 .chip { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 .charts .tabs { flex-wrap: nowrap; overflow: hidden; }
+
+.box-select { position: absolute; border: 1px dashed var(--accent); background: rgba(127, 227, 255, 0.08); pointer-events: none; z-index: 5; }

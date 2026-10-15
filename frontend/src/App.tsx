@@ -230,6 +230,14 @@ export default function App() {
     s.onContext((id, ev) => {
       if (id) setMenu({ x: ev.clientX, y: ev.clientY, id });
     });
+    s.onBox((hits, additive) => {
+      // A component is boxed when ≥ 1% of its drawn markers (or its single
+      // discrete marker) fall inside the rectangle.
+      const ids = hits.filter((h) => h.inside > 0 && (h.inside / h.shown >= 0.01 || h.shown <= 1000)).map((h) => h.id);
+      setSel((cur) => ({ components: additive ? [...new Set([...cur.components, ...ids])] : ids, tags: additive ? cur.tags : [] }));
+      setTab('inspector');
+      notify(ids.length ? `Box: ${ids.length} component(s) selected` : 'Box: nothing selected', 'info');
+    });
   });
 
   // ---- close the context menu on any outside click
