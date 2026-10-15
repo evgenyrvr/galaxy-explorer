@@ -13,5 +13,11 @@ velocities come from tilted-ring fits to observed line-of-sight velocities,
 | corbelli2010_rotation_curve.csv | Corbelli et al. 2010, A&A 511, A89 — arXiv:0912.4133 | Table 1 | H I rotation velocity ± error with warp model, 8.5–36.5 kpc |
 | corbelli2010_enclosed_mass.csv | same | Table 3 | Compilation of dynamical M(<R) estimates to 560 kpc with asymmetric errors and original references |
 
-The extraction script is kept with the project history (scratch); rerunning it
-against the arXiv sources reproduces these files byte for byte.
+Reproduce with [tools/extract_m31.py](../../../../tools/extract_m31.py):
+
+```bash
+mkdir -p src/0909.3846 src/0912.4133
+curl -L https://arxiv.org/e-print/0909.3846 | tar xz -C src/0909.3846
+curl -L https://arxiv.org/e-print/0912.4133 | tar xz -C src/0912.4133
+python -I tools/extract_m31.py src internal/presets/data/m31
+```
