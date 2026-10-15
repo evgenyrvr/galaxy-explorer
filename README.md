@@ -4,7 +4,7 @@ Interactive desktop 3D atlas of galaxy structure with exact, single-counted
 mass bookkeeping. Go owns the physics and the mass budget; Three.js renders
 representative markers; Wails provides the Windows desktop shell.
 
-**Status:** MVP + first part of V1 (v0.2.0). See [CHANGELOG.md](CHANGELOG.md) and
+**Status:** MVP + V1 (v0.3.0). See [CHANGELOG.md](CHANGELOG.md) and
 the acceptance matrix in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
 
 Specification and role skills (Russian): [TECHNICAL_SPECIFICATION.md](TECHNICAL_SPECIFICATION.md),
@@ -12,6 +12,9 @@ Specification and role skills (Russian): [TECHNICAL_SPECIFICATION.md](TECHNICAL_
 
 ## What it does
 
+- **M31 observational** preset: published masses (Chemin+2009, Corbelli+2010, Draine+2014,
+  Bender+2005), measured Σ_HI profile, bundled rotation curves and dynamical masses
+  ([internal/presets/data/m31](internal/presets/data/m31/README.md)).
 - Two normalised presets: **M31-inspired spiral** and **M87-inspired elliptical**,
   default `M200c = 10¹² M☉`, structure and fractions from rounded literature values
   (sources listed in the app and in [internal/galaxy/sources.go](internal/galaxy/sources.go)).

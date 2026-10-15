@@ -23,7 +23,7 @@ import (
 )
 
 // AppVersion is written into saved projects.
-const AppVersion = "0.2.0"
+const AppVersion = "0.3.0"
 
 const defaultSeed = 20261015
 
@@ -87,6 +87,10 @@ func (a *App) LoadPreset(id string) (galaxy.State, error) {
 	}
 	a.mu.Lock()
 	a.model = m
+	a.datasets = nil
+	if dp, ok := p.(galaxy.DatasetProvider); ok {
+		a.datasets = dp.Datasets() // bundled published tables
+	}
 	a.mu.Unlock()
 	return m.Snapshot(), nil
 }

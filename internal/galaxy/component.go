@@ -4,6 +4,7 @@ package galaxy
 
 import (
 	"galaxy/internal/budget"
+	"galaxy/internal/obsdata"
 	"galaxy/internal/ontology"
 	"galaxy/internal/physics"
 	"galaxy/internal/units"
@@ -57,6 +58,11 @@ type Preset interface {
 	Build(env Env) []*Component
 	// Tags describes the structural tags used by the preset.
 	Tags() []ontology.Tag
+}
+
+// DatasetProvider is implemented by presets that bundle published tables.
+type DatasetProvider interface {
+	Datasets() []obsdata.Dataset
 }
 
 // PresetInfo is shown in the preset picker.

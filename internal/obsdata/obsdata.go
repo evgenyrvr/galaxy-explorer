@@ -41,11 +41,15 @@ var unitFactors = map[Quantity]map[string]float64{
 	EnclosedMass:     {"msun": 1, "1e10msun": 1e10},
 }
 
-// Point is one measurement; Err ≤ 0 means no error given.
+// Point is one measurement with 1σ errors below and above the value
+// (canonical unit; 0 = no error given). Label carries per-row text such as
+// the original reference or tracer.
 type Point struct {
-	R   float64 `json:"r"`   // kpc
-	V   float64 `json:"v"`   // canonical unit
-	Err float64 `json:"err"` // canonical unit, 1σ
+	R     float64 `json:"r"` // kpc
+	V     float64 `json:"v"`
+	ErrLo float64 `json:"errLo"`
+	ErrHi float64 `json:"errHi"`
+	Label string  `json:"label,omitempty"`
 }
 
 // Dataset is an imported profile with provenance.
@@ -75,10 +79,13 @@ const arcsecToRad = math.Pi / (180 * 3600)
 //	# evidence: OBSERVED | INFERRED | RECONSTRUCTED | ILLUSTRATIVE
 //	# source: citation           (required)
 //	# name, url, notes, distance_kpc: optional
-//	r,value,err
+//	r,value,err                      (symmetric 1σ error)
+//	r,value,err_minus,err_plus       (asymmetric errors)
 //	1.0,250,30
 //
-// The header row is optional; the error column is optional.
+// The header row is optional; error columns are optional; further text
+// columns (reference, tracer) are kept as the point label. Radii must not
+// decrease; equal radii are allowed for independent estimates.
 func Parse(name string, data []byte) (Dataset, error) {
 	d := Dataset{Name: name}
 	meta := map[string]string{}
@@ -149,6 +156,7 @@ func Parse(name string, data []byte) (Dataset, error) {
 	rd.FieldsPerRecord = -1
 	rd.TrimLeadingSpace = true
 	row := 0
+	errLo, errHi := 2, 2 // column indices of the errors
 	for {
 		rec, err := rd.Read()
 		if err == io.EOF {
@@ -165,15 +173,30 @@ func Parse(name string, data []byte) (Dataset, error) {
 		v, err2 := strconv.ParseFloat(rec[1], 64)
 		if err1 != nil || err2 != nil {
 			if row == 1 && len(d.Points) == 0 {
-				continue // header row
+				// Header row: locate asymmetric error columns by name.
+				for i, h := range rec {
+					h = strings.ToLower(h)
+					if strings.Contains(h, "minus") || strings.Contains(h, "lo") && strings.Contains(h, "err") {
+						errLo = i
+					}
+					if strings.Contains(h, "plus") || strings.Contains(h, "hi") && strings.Contains(h, "err") {
+						errHi = i
+					}
+				}
+				continue
 			}
 			return d, fmt.Errorf("row %d: not a number", row)
 		}
-		e := 0.0
-		if len(rec) > 2 && strings.TrimSpace(rec[2]) != "" {
-			if e, err = strconv.ParseFloat(rec[2], 64); err != nil || e < 0 {
-				return d, fmt.Errorf("row %d: error must be a non-negative number", row)
-			}
+		if row == 1 && len(rec) >= 4 && isNumber(rec[2]) && isNumber(rec[3]) {
+			errLo, errHi = 2, 3 // headerless r,value,err_minus,err_plus
+		}
+		lo, err := errorAt(rec, errLo)
+		if err != nil {
+			return d, fmt.Errorf("row %d: %w", row, err)
+		}
+		hi, err := errorAt(rec, errHi)
+		if err != nil {
+			return d, fmt.Errorf("row %d: %w", row, err)
 		}
 		if !(r > 0) || math.IsInf(r, 0) {
 			return d, fmt.Errorf("row %d: radius must be positive", row)
@@ -184,14 +207,20 @@ func Parse(name string, data []byte) (Dataset, error) {
 		if v < 0 && d.Quantity != CircularVelocity {
 			return d, fmt.Errorf("row %d: %s cannot be negative", row, d.Quantity)
 		}
-		d.Points = append(d.Points, Point{R: r * rf, V: v * f, Err: e * f})
+		var label []string
+		for i := 2; i < len(rec); i++ {
+			if i != errLo && i != errHi && strings.TrimSpace(rec[i]) != "" && !isNumber(rec[i]) {
+				label = append(label, strings.TrimSpace(rec[i]))
+			}
+		}
+		d.Points = append(d.Points, Point{R: r * rf, V: v * f, ErrLo: lo * f, ErrHi: hi * f, Label: strings.Join(label, " · ")})
 	}
 	if len(d.Points) == 0 {
 		return d, errors.New("no data rows")
 	}
 	for i := 1; i < len(d.Points); i++ {
-		if d.Points[i].R <= d.Points[i-1].R {
-			return d, fmt.Errorf("radii must increase (row %d)", i+1)
+		if d.Points[i].R < d.Points[i-1].R {
+			return d, fmt.Errorf("radii must not decrease (data row %d)", i+1)
 		}
 	}
 	return d, nil
@@ -209,4 +238,21 @@ func keys(m map[string]float64) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+func isNumber(s string) bool {
+	_, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	return err == nil
+}
+
+// errorAt reads an optional non-negative error column.
+func errorAt(rec []string, i int) (float64, error) {
+	if i >= len(rec) || strings.TrimSpace(rec[i]) == "" {
+		return 0, nil
+	}
+	e, err := strconv.ParseFloat(strings.TrimSpace(rec[i]), 64)
+	if err != nil || e < 0 || math.IsInf(e, 0) {
+		return 0, errors.New("errors must be non-negative numbers")
+	}
+	return e, nil
 }

@@ -445,6 +445,7 @@ export namespace galaxy {
 	    tags: TagState[];
 	    baryonFraction: number;
 	    cosmicBaryonFraction: number;
+	    modified: boolean;
 	    canUndo: boolean;
 	    canRedo: boolean;
 	    seed: number;
@@ -472,6 +473,7 @@ export namespace galaxy {
 	        this.tags = this.convertValues(source["tags"], TagState);
 	        this.baryonFraction = source["baryonFraction"];
 	        this.cosmicBaryonFraction = source["cosmicBaryonFraction"];
+	        this.modified = source["modified"];
 	        this.canUndo = source["canUndo"];
 	        this.canRedo = source["canRedo"];
 	        this.seed = source["seed"];
@@ -545,7 +547,9 @@ export namespace obsdata {
 	export class Point {
 	    r: number;
 	    v: number;
-	    err: number;
+	    errLo: number;
+	    errHi: number;
+	    label?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Point(source);
@@ -555,7 +559,9 @@ export namespace obsdata {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.r = source["r"];
 	        this.v = source["v"];
-	        this.err = source["err"];
+	        this.errLo = source["errLo"];
+	        this.errHi = source["errHi"];
+	        this.label = source["label"];
 	    }
 	}
 	export class Dataset {

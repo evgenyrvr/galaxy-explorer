@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0 — 2026-10-15
+
+- Observational preset **M31 observational**: masses from Chemin+2009 (stellar disc and
+  bulge, H I, H₂ via Dame+1993), Draine+2014 (dust), Bender+2005 (black hole) and the
+  Corbelli+2010 ΛCDM NFW halo (C = 12, M₉₈ = 1.2×10¹² M☉) re-expressed as M200c for
+  Planck 2018 together with the baryons (R200c = 222 kpc, M200c = 1.17×10¹² M☉).
+  The H I disc uses the measured Σ_HI table as its radial profile.
+- Bundled published tables (Chemin+2009 rotation curve and Σ_HI, Corbelli+2010 rotation
+  curve and compiled dynamical M(<R)), transcribed from the arXiv LaTeX sources.
+- Model-vs-data tests: ∫Σ_HI dA = 4.23×10⁹ M☉ (equals the flux-based mass); Vc agrees
+  with Corbelli+2010 to 5% and with Chemin+2009 to 10% (model ~7–10% low at 10–30 kpc
+  with M/L_disc = 1.7); dynamical M(<R) to 560 kpc with χ²/n ≈ 1.0. No parameter was fitted.
+- "Modified reconstruction" badge when an observational preset's budget is edited;
+  data mode "observed + inferred".
+- Profile import: asymmetric errors (err_minus, err_plus), equal radii, text columns.
+
 ## 0.2.0 — 2026-10-15
 
 V1, first part.

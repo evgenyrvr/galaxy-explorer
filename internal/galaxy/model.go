@@ -287,6 +287,7 @@ type State struct {
 	Tags                 []TagState       `json:"tags"`
 	BaryonFraction       float64          `json:"baryonFraction"`
 	CosmicBaryonFraction float64          `json:"cosmicBaryonFraction"`
+	Modified             bool             `json:"modified"` // budget differs from the preset defaults
 	CanUndo              bool             `json:"canUndo"`
 	CanRedo              bool             `json:"canRedo"`
 	Seed                 int64            `json:"seed"`
@@ -310,10 +311,19 @@ func (m *Model) Snapshot() State {
 		Unallocated:          b.Unallocated(),
 		UnallocatedMass:      b.Unallocated() * b.TotalMass,
 		Issues:               b.Validate(),
+		Modified:             !sameBudget(b, m.preset.DefaultBudget()),
 		CanUndo:              m.hist.CanUndo(),
 		CanRedo:              m.hist.CanRedo(),
 		CosmicBaryonFraction: m.cosmo.BaryonFraction(),
 		Seed:                 m.seed,
+	}
+	// The concentration of the preset's own NFW halo, when it has one.
+	for _, c := range m.comps {
+		if c.Matter == ontology.DarkMatter && c.Dist.Kind() == "nfw" {
+			if cc, ok := c.Dist.Params()["c200c"]; ok {
+				s.Concentration = cc
+			}
+		}
 	}
 	for _, c := range b.Categories {
 		info, _ := ontology.MatterByID(ontology.MatterType(c.ID))
@@ -568,4 +578,22 @@ func hash64(s string) uint64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(s))
 	return h.Sum64()
+}
+
+// sameBudget compares masses and shares within the budget tolerance.
+func sameBudget(a, b budget.Budget) bool {
+	if math.Abs(a.TotalMass/b.TotalMass-1) > 1e-9 || len(a.Categories) != len(b.Categories) {
+		return false
+	}
+	for _, c := range b.Categories {
+		if math.Abs(a.CategoryFraction(c.ID)-c.Fraction) > 1e-12 {
+			return false
+		}
+		for _, sh := range b.Shares[c.ID] {
+			if math.Abs(a.ShareOf(c.ID, sh.Component)-sh.Share) > 1e-12 {
+				return false
+			}
+		}
+	}
+	return true
 }

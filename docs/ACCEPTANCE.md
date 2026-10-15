@@ -10,7 +10,7 @@
 | AC-06 M_total 10¹² → 2×10¹² | ✅ auto | `TestAC06TotalMassScales`, `TestAC06AndAC15` (R200c-dependent geometry updates, fixed geometry keeps its key) |
 | AC-07 Satellite inside R200c | ✅ auto | `TestAC07Satellites`, `TestComponentsInsideR200c`; inspector shows "Inside R200c" |
 | AC-08 Hot halo only | ✅ auto | `TestAC08HotOnly` |
-| AC-09 Observed-only mode | 🟡 implemented, manual check pending | "Data: observed only" hides all non-OBSERVED components and explains that the synthetic preset has none; no fake observations |
+| AC-09 Observed-only mode | 🟡 implemented, manual check pending (modes: observed only / observed + inferred) | "Data: observed only" hides all non-OBSERVED components and explains that the synthetic preset has none; no fake observations |
 | AC-10 Import Σ(R) table | ✅ auto + manual | `TestAC10SurfaceDensityImport`, `TestRejectsCrossQuantityUnits`, `TestRequiresProvenance`: Σ stays Σ in M☉/pc², other quantities' units are refused, no points are added; plotted as points with error bars on the Σ(R) tab |
 | AC-11 Save/load project | ✅ auto + manual | `TestRoundTrip` (budget, seed, UI document); camera, visibility, selection, region, comparison and imported datasets restored (checked by opening a project from the command line) |
 | AC-12 Zoom to BH then to satellites | 🟡 implemented, manual check pending | "Nucleus" frames 10 pc, BH is a fixed-size schematic icon; logarithmic depth buffer, float64 → float32 in kpc around the centre |

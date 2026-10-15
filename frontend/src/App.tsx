@@ -10,7 +10,7 @@ import { Inspector } from './ui/Inspector';
 import { RegionPanel } from './ui/RegionPanel';
 import { StructureTree } from './ui/StructureTree';
 
-type DataMode = 'all' | 'no-illustrative' | 'observed';
+type DataMode = 'all' | 'no-illustrative' | 'inferred' | 'observed';
 
 interface UIDoc {
   camera: CameraState;
@@ -96,6 +96,8 @@ export default function App() {
       setFilterTags([]);
       setVisible(new Set(arr(st.components).map((c) => c.id)));
       setState(st);
+      setDatasets(arr(await api.Datasets()));
+      setCompareId('');
       const sc = scene.current;
       if (sc) {
         sc.controls.target.set(0, 0, 0);
@@ -130,6 +132,7 @@ export default function App() {
     for (const c of arr(state?.components)) {
       if (dataMode === 'observed' && c.evidence !== 'OBSERVED') h.add(c.id);
       if (dataMode === 'no-illustrative' && c.evidence === 'ILLUSTRATIVE') h.add(c.id);
+      if (dataMode === 'inferred' && c.evidence !== 'OBSERVED' && c.evidence !== 'INFERRED') h.add(c.id);
     }
     return h;
   }, [state, dataMode]);
@@ -347,7 +350,11 @@ export default function App() {
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
-        <span className="badge recon" title={state?.preset.disclaimer}>Synthetic reconstruction · normalised preset</span>
+        <span className={`badge ${state?.preset.kind === 'observational' && !state.modified ? 'obs' : 'recon'}`} title={state?.preset.disclaimer}>
+          {state?.preset.kind === 'observational'
+            ? state.modified ? 'Modified reconstruction · edited observational preset' : 'Observational preset · inferred masses'
+            : 'Synthetic reconstruction · normalised preset'}
+        </span>
         <label className="small">
           M_total
           <input className="num wide" value={totalText} onChange={(e) => setTotalText(e.target.value)} onBlur={commitTotal} onKeyDown={(e) => e.key === 'Enter' && commitTotal()} /> M☉
@@ -373,6 +380,7 @@ export default function App() {
           <select value={dataMode} onChange={(e) => setDataMode(e.target.value as DataMode)}>
             <option value="all">all (labelled)</option>
             <option value="no-illustrative">hide illustrative</option>
+            <option value="inferred">observed + inferred</option>
             <option value="observed">observed only</option>
           </select>
         </label>
@@ -400,8 +408,11 @@ export default function App() {
         <section className="center">
           <div className="scene" ref={sceneHost}>
             {loading && <div className="loading">Generating markers…</div>}
-            {dataMode === 'observed' && hiddenByMode.size === arr(state?.components).length && (
-              <div className="banner">This preset is a synthetic reconstruction: it contains no directly observed elements, so nothing is shown in “observed only” mode. Fake observational points are never generated.</div>
+            {(dataMode === 'observed' || dataMode === 'inferred') && hiddenByMode.size === arr(state?.components).length && (
+              <div className="banner">This preset contains no {dataMode === 'observed' ? 'directly observed' : 'observed or inferred'} components, so nothing is shown in this mode. Fake observational points are never generated.</div>
+            )}
+            {dataMode === 'observed' && state?.preset.kind === 'observational' && (
+              <div className="banner subtle">Masses and profiles of this preset are inferred from observations (M/L, tilted rings, halo fits), not measured directly; use “observed + inferred”. The bundled tables are shown in the plots.</div>
             )}
             {scaleBar && (
               <div className="scalebar">

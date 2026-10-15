@@ -146,3 +146,8 @@ input.num.short { width: 56px; }
 .chip { display: inline-flex; align-items: center; gap: 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 0 2px 0 8px; font-size: 11px; white-space: nowrap; }
 .chart-legend i.dash { background: none !important; border-top: 2px dashed; height: 0; }
 .chart-legend i.dot { width: 6px; height: 6px; border-radius: 50%; }
+
+.badge.obs { white-space: nowrap; background: #0f2e22; color: var(--observed); border: 1px solid #1f5a3a; }
+.banner.subtle { top: auto; bottom: 40px; background: rgba(16, 32, 48, 0.9); border-color: #2a4a70; color: #b9d4f5; }
+.chip { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.charts .tabs { flex-wrap: nowrap; overflow: hidden; }

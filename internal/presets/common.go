@@ -16,7 +16,7 @@ import (
 
 // All returns the available presets.
 func All() []galaxy.Preset {
-	return []galaxy.Preset{NewM31(), NewM87()}
+	return []galaxy.Preset{NewM31(), NewM31Obs(), NewM87()}
 }
 
 // ByID finds a preset.

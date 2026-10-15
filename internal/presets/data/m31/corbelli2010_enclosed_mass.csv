@@ -1,0 +1,20 @@
+# name: M31 M(<R) from dynamical tracers (compiled by Corbelli+2010)
+# quantity: enclosed_mass
+# unit: 1e10Msun
+# radius_unit: kpc
+# evidence: INFERRED
+# source: Corbelli et al. 2010, A&A 511, A89 (Table 3, compilation; original references in the ref column)
+# url: https://arxiv.org/abs/0912.4133
+# notes: Dynamical mass estimates from globular clusters, satellites, the stellar stream and 21-cm data; asymmetric 1σ errors; several estimates share a radius.
+r_kpc,mass_1e10msun,err_minus,err_plus,ref,tracer
+32,39,10,2,2000MNRAS.316..929E,17 Globular Clusters
+37,49,14,12,This paper,21-cm data
+41,48,23,34,2000MNRAS.316..929E,17 Globular Clusters
+55,55,3,4,2008ApJ...674..886L,504 Globular Clusters
+60,44,4,26,Galleti et al. (2006),349 Globular Clusters
+100,79,5,5,2000ApJ...537L..91C,12 Satellites
+125,75,13,25,2004MNRAS.351..117I,Stellar Stream
+125,74,12,12,2006MNRAS.366.1012F,Stellar Stream
+268,137,18,18,1999AJ....118..337C,7 Satellites
+560,125,60,180,2000MNRAS.316..929E,11 Satellites
+560,99,63,146,2000ApJ...540L...9E,16 Satellites

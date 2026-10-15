@@ -32,7 +32,7 @@ interface Props {
   onRemoveDataset: (id: string) => void;
 }
 
-type S = { id: string; label: string; y: (number | null)[]; color: string; dash?: number[]; points?: boolean; err?: (number | null)[] };
+type S = { id: string; label: string; y: (number | null)[]; color: string; dash?: number[] };
 
 export function Charts(p: Props) {
   const [kind, setKind] = useState<Kind>('enclosed');
@@ -76,18 +76,8 @@ export function Charts(p: Props) {
       if (y) model.push({ id: 'compare', label: `${p.compareName} (total)`, y, color: '#9aa6c0', dash: [6, 4] });
     }
 
-    // Merge the model grid with the radii of imported points.
-    const grid = arr(p.profiles.r);
-    const xs = [...new Set([...grid, ...relevant.flatMap((d) => arr(d.points).map((pt) => pt.r))])].sort((a, b) => a - b);
-    const gridIndex = new Map(grid.map((r, i) => [r, i]));
-    const series: S[] = model.map((s) => ({ ...s, y: xs.map((x) => (gridIndex.has(x) ? s.y[gridIndex.get(x)!] : null)) }));
-    relevant.forEach((d, i) => {
-      const at = new Map(arr(d.points).map((pt) => [pt.r, pt]));
-      series.push({
-        id: d.id, label: `${d.name} [${d.evidence.toLowerCase()}]`, color: DATA_COLORS[i % DATA_COLORS.length], points: true,
-        y: xs.map((x) => at.get(x)?.v ?? null), err: xs.map((x) => at.get(x)?.err ?? null),
-      });
-    });
+    const xs = arr(p.profiles.r);
+    const series: S[] = model;
 
     // Log axes: drop values far below the largest one so the range stays ≤ 12 decades.
     const ymax = Math.max(1e-300, ...series.flatMap((s) => s.y.map((v) => v ?? 0)));
@@ -96,20 +86,24 @@ export function Charts(p: Props) {
     const clean = (y: (number | null)[]) => y.map((v) => (v == null || (k.logY && !(v > floor)) ? null : v));
     const data = [xs, ...shown.map((s) => clean(s.y))] as uPlot.AlignedData;
 
-    const errorBars = (u: uPlot) => {
+    // Imported points are drawn on top (they may share radii and have asymmetric errors).
+    const pts = relevant.flatMap((d, i) => arr(d.points).map((pt) => ({ ...pt, color: DATA_COLORS[i % DATA_COLORS.length] })));
+    const drawData = (u: uPlot) => {
       const ctx = u.ctx;
       const dpr = devicePixelRatio;
-      for (const s of shown) {
-        if (!s.err) continue;
-        ctx.save();
-        ctx.strokeStyle = s.color;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(u.bbox.left, u.bbox.top, u.bbox.width, u.bbox.height);
+      ctx.clip();
+      for (const pt of pts) {
+        const cx = u.valToPos(pt.r, 'x', true);
+        const cy = u.valToPos(pt.v, 'y', true);
+        ctx.strokeStyle = pt.color;
+        ctx.fillStyle = pt.color;
         ctx.lineWidth = 1.2 * dpr;
-        xs.forEach((x, i) => {
-          const v = s.y[i], e = s.err![i];
-          if (v == null || !e || !(e > 0)) return;
-          const lo = k.logY ? Math.max(v - e, floor) : v - e;
-          const cx = u.valToPos(x, 'x', true);
-          const y0 = u.valToPos(lo, 'y', true), y1 = u.valToPos(v + e, 'y', true);
+        if (pt.errLo > 0 || pt.errHi > 0) {
+          const lo = k.logY ? Math.max(pt.v - pt.errLo, floor) : pt.v - pt.errLo;
+          const y0 = u.valToPos(lo, 'y', true), y1 = u.valToPos(pt.v + pt.errHi, 'y', true);
           ctx.beginPath();
           ctx.moveTo(cx, y0);
           ctx.lineTo(cx, y1);
@@ -118,15 +112,28 @@ export function Charts(p: Props) {
           ctx.moveTo(cx - 3 * dpr, y1);
           ctx.lineTo(cx + 3 * dpr, y1);
           ctx.stroke();
-        });
-        ctx.restore();
+        }
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2.6 * dpr, 0, 2 * Math.PI);
+        ctx.fill();
       }
+      ctx.restore();
+    };
+    const dataX = pts.map((q) => q.r);
+    const dataY = pts.flatMap((q) => [q.v - q.errLo, q.v + q.errHi, q.v]).filter((v) => !k.logY || v > floor);
+    const xRange = (_u: uPlot, mn: number, mx: number): uPlot.Range.MinMax =>
+      uPlot.rangeLog(Math.min(mn, ...dataX), Math.max(mx, ...dataX), 10, true) as uPlot.Range.MinMax;
+    const yRange = (_u: uPlot, mn: number, mx: number): uPlot.Range.MinMax => {
+      const lo = Math.min(mn, ...dataY), hi = Math.max(mx, ...dataY);
+      if (k.logY) return uPlot.rangeLog(lo, hi, 10, true) as uPlot.Range.MinMax;
+      const pad = 0.05 * (hi - lo || 1);
+      return [lo - pad, hi + pad];
     };
 
     const opts: uPlot.Options = {
       width: Math.max(200, el.clientWidth - 16),
       height: Math.max(100, el.clientHeight),
-      scales: { x: { time: false, distr: 3 }, y: k.logY ? { distr: 3 } : { auto: true } },
+      scales: { x: { time: false, distr: 3, range: xRange }, y: k.logY ? { distr: 3, range: yRange } : { range: yRange } },
       axes: [
         { label: k.x, stroke: '#9aa6c0', grid: { stroke: '#1d2436' }, ticks: { stroke: '#2a3350' }, values: (_u, v) => v.map(decadeLabel(v)) },
         {
@@ -136,7 +143,7 @@ export function Charts(p: Props) {
       ],
       legend: { show: false },
       cursor: { drag: { x: true, y: false } },
-      hooks: { draw: [errorBars] },
+      hooks: { draw: [drawData] },
       series: [
         { label: 'r' },
         ...shown.map((s) => ({
@@ -144,9 +151,8 @@ export function Charts(p: Props) {
           stroke: s.color,
           width: s.id === 'total' ? 2 : 1.4,
           dash: s.dash,
-          spanGaps: !s.points,
-          paths: s.points ? () => null : undefined,
-          points: s.points ? { show: true, size: 6, fill: s.color, stroke: s.color } : { show: false },
+          spanGaps: true,
+          points: { show: false },
         })),
       ],
     };
@@ -157,7 +163,10 @@ export function Charts(p: Props) {
       el.textContent = `Plot error: ${String(e)}`;
       return;
     }
-    setLegend(shown.map((s) => ({ label: s.label, color: s.color, dash: !!s.dash, points: s.points })));
+    setLegend([
+      ...shown.map((s) => ({ label: s.label, color: s.color, dash: !!s.dash })),
+      ...relevant.map((d, i) => ({ label: `${d.name} [${d.evidence.toLowerCase()}]`, color: DATA_COLORS[i % DATA_COLORS.length], points: true })),
+    ]);
     const ro = new ResizeObserver(() => plot.current?.setSize({ width: Math.max(200, el.clientWidth - 16), height: Math.max(100, el.clientHeight) }));
     ro.observe(el);
     return () => {

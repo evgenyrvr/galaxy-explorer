@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 )
 
 // ArmPattern is an m-armed logarithmic spiral modulation of a disc's
@@ -42,6 +43,9 @@ const (
 	// ExponentialHole: Σ ∝ exp(−Rm/R − R/Rd), a disc with a central
 	// depression, as used for gas discs by McMillan (2017, MNRAS 465, 76).
 	ExponentialHole
+	// Tabulated: Σ(R) interpolated linearly in a measured profile, constant
+	// inside the first radius and zero beyond the last one.
+	Tabulated
 )
 
 // Disc is an axisymmetric thick disc with sech² vertical structure:
@@ -50,6 +54,8 @@ const (
 type Disc struct {
 	shape   DiscShape
 	rd, rm  float64
+	tabR    []float64
+	tabS    []float64
 	z0      float64
 	rflare  float64
 	rmax    float64
@@ -63,19 +69,28 @@ type Disc struct {
 
 // DiscOptions configures NewDisc.
 type DiscOptions struct {
-	Shape    DiscShape
-	Rd       float64 // scale length, kpc
-	Rm       float64 // hole radius for ExponentialHole, kpc
-	Z0       float64 // sech² scale height at R = 0, kpc
-	RFlare   float64 // z0(R) = z0·sqrt(1 + (R/RFlare)²); 0 = no flare
-	RMax     float64 // truncation radius, kpc
-	Arms     *ArmPattern
-	Rotation *Mat3
+	Shape      DiscShape
+	Rd         float64   // scale length, kpc
+	Rm         float64   // hole radius for ExponentialHole, kpc
+	Z0         float64   // sech² scale height at R = 0, kpc
+	RFlare     float64   // z0(R) = z0·sqrt(1 + (R/RFlare)²); 0 = no flare
+	RMax       float64   // truncation radius, kpc
+	TableR     []float64 // Tabulated: radii, kpc (increasing)
+	TableSigma []float64 // Tabulated: Σ at TableR (any unit; normalised)
+	Arms       *ArmPattern
+	Rotation   *Mat3
 }
 
 // NewDisc builds a normalised disc distribution.
 func NewDisc(o DiscOptions) *Disc {
-	d := &Disc{shape: o.Shape, rd: o.Rd, rm: o.Rm, z0: o.Z0, rflare: o.RFlare, rmax: o.RMax, arms: o.Arms, rot: Identity}
+	d := &Disc{shape: o.Shape, rd: o.Rd, rm: o.Rm, z0: o.Z0, rflare: o.RFlare, rmax: o.RMax, arms: o.Arms, rot: Identity,
+		tabR: o.TableR, tabS: o.TableSigma}
+	if d.shape == Tabulated {
+		if len(d.tabR) < 2 || len(d.tabR) != len(d.tabS) {
+			panic("physics: tabulated disc needs ≥ 2 matching radii and values")
+		}
+		d.rmax = math.Min(d.rmax, d.tabR[len(d.tabR)-1])
+	}
 	if o.Rotation != nil {
 		d.rot = *o.Rotation
 		d.rotated = true
@@ -95,6 +110,8 @@ func (d *Disc) sigmaShape(R float64) float64 {
 			return 0
 		}
 		return math.Exp(-d.rm/R - R/d.rd)
+	case Tabulated:
+		return interpTable(d.tabR, d.tabS, R)
 	default:
 		return math.Exp(-R / d.rd)
 	}
@@ -129,14 +146,22 @@ func (d *Disc) buildSphericalTable() *gridFunc {
 }
 
 func (d *Disc) Kind() string {
-	if d.shape == ExponentialHole {
+	switch d.shape {
+	case ExponentialHole:
 		return "exponential_disc_with_hole"
+	case Tabulated:
+		return "tabulated_disc"
 	}
 	return "exponential_disc"
 }
 
 func (d *Disc) Params() map[string]float64 {
-	p := map[string]float64{"Rd_kpc": d.rd, "z0_kpc": d.z0, "Rmax_kpc": d.rmax}
+	p := map[string]float64{"z0_kpc": d.z0, "Rmax_kpc": d.rmax}
+	if d.shape == Tabulated {
+		p["table_points"] = float64(len(d.tabR))
+	} else {
+		p["Rd_kpc"] = d.rd
+	}
 	if d.shape == ExponentialHole {
 		p["Rm_kpc"] = d.rm
 	}
@@ -282,4 +307,19 @@ func NewCDFTableRaw(w func(x float64) float64, xmax float64, n int) cdfRaw {
 		prev = b
 	}
 	return cdfRaw{table: NewCDFTable(w, xmax, n), total: total}
+}
+
+// interpTable interpolates linearly; constant below the first radius and
+// zero beyond the last.
+func interpTable(xs, ys []float64, x float64) float64 {
+	n := len(xs)
+	if x <= xs[0] {
+		return math.Max(0, ys[0])
+	}
+	if x > xs[n-1] {
+		return 0
+	}
+	i := sort.SearchFloat64s(xs, x)
+	t := (x - xs[i-1]) / (xs[i] - xs[i-1])
+	return math.Max(0, ys[i-1]+t*(ys[i]-ys[i-1]))
 }

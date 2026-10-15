@@ -43,5 +43,8 @@ var Sources = map[string]Source{
 	"biretta1999":     {"biretta1999", "Biretta, Sparks & Macchetto 1999, ApJ 520, 621", "https://doi.org/10.1086/307499", "M87 optical jet (~1.5 kpc, knots, superluminal motion)."},
 	"churazov2008":    {"churazov2008", "Churazov et al. 2008, MNRAS 388, 1062", "https://doi.org/10.1111/j.1365-2966.2008.13507.x", "M87 hot atmosphere and its mass profile."},
 	"sparks2004":      {"sparks2004", "Sparks et al. 2004, ApJ 607, 294", "https://doi.org/10.1086/383608", "Hα filaments in M87."},
+	"chemin2009":      {"chemin2009", "Chemin, Carignan & Foster 2009, ApJ 705, 1395", "https://arxiv.org/abs/0909.3846", "M31 H I rotation curve and Σ_HI (Table 4), H I mass 4.23×10⁹ M☉, stellar masses from R-band M/L."},
+	"corbelli2010":    {"corbelli2010", "Corbelli et al. 2010, A&A 511, A89", "https://arxiv.org/abs/0912.4133", "M31 21-cm rotation curve with warp, ΛCDM NFW halo (C = 12, 1.2×10¹² M☉ for Δ = 98), compiled dynamical M(<R)."},
+	"dame1993":        {"dame1993", "Dame et al. 1993, ApJ 418, 730", "https://doi.org/10.1086/173431", "M31 CO survey; molecular mass ≈ 3.5×10⁸ M☉ at 785 kpc (as adopted by Chemin+2009)."},
 	"ford1994":        {"ford1994", "Ford et al. 1994, ApJL 435, L27", "https://doi.org/10.1086/187586", "Ionized gas/dust disc of ~100 pc around M87's nucleus."},
 }

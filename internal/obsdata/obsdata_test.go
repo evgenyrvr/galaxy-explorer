@@ -30,7 +30,7 @@ func TestAC10SurfaceDensityImport(t *testing.T) {
 	if len(d.Points) != 3 || d.Points[0].R != 0.5 {
 		t.Fatalf("points %+v", d.Points)
 	}
-	if math.Abs(d.Points[0].V-200) > 1e-9 || math.Abs(d.Points[0].Err-10) > 1e-9 || d.Points[1].Err != 0 {
+	if math.Abs(d.Points[0].V-200) > 1e-9 || math.Abs(d.Points[0].ErrLo-10) > 1e-9 || d.Points[0].ErrHi != d.Points[0].ErrLo || d.Points[1].ErrLo != 0 {
 		t.Fatalf("unit conversion wrong: %+v", d.Points)
 	}
 }
@@ -86,5 +86,36 @@ func TestExampleFile(t *testing.T) {
 	}
 	if d.Evidence != "ILLUSTRATIVE" || len(d.Points) != 8 {
 		t.Fatalf("example: %s, %d points", d.Evidence, len(d.Points))
+	}
+}
+
+// Bundled M31 tables: asymmetric errors, repeated radii and text columns.
+func TestBundledM31Tables(t *testing.T) {
+	for _, tc := range []struct {
+		file string
+		n    int
+	}{
+		{"chemin2009_rotation_curve.csv", 98},
+		{"chemin2009_hi_surface_density.csv", 100},
+		{"corbelli2010_rotation_curve.csv", 29},
+		{"corbelli2010_enclosed_mass.csv", 11},
+	} {
+		data, err := os.ReadFile("../presets/data/m31/" + tc.file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		d, err := Parse(tc.file, data)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.file, err)
+		}
+		if len(d.Points) != tc.n || d.Evidence != "INFERRED" {
+			t.Fatalf("%s: %d points, %s", tc.file, len(d.Points), d.Evidence)
+		}
+		if tc.file == "corbelli2010_enclosed_mass.csv" {
+			p := d.Points[0] // 32 kpc: 39 (+2, −10) ×10¹⁰ M☉
+			if p.V != 39e10 || p.ErrLo != 10e10 || p.ErrHi != 2e10 || p.Label == "" {
+				t.Fatalf("asymmetric errors parsed wrong: %+v", p)
+			}
+		}
 	}
 }
