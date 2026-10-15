@@ -10,6 +10,15 @@ the acceptance matrix in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
 Specification and role skills (Russian): [TECHNICAL_SPECIFICATION.md](TECHNICAL_SPECIFICATION.md),
 [SKILLS_INDEX.md](SKILLS_INDEX.md), [skills/](skills/).
 
+## Download (Windows)
+
+A ready-to-run build is attached to each release: open
+[Releases](https://github.com/evgenyrvr/galaxy-explorer/releases/latest), download
+`GalaxyExplorer-<version>-windows-amd64.zip`, unpack it and start `GalaxyExplorer.exe`.
+Requires Windows 10/11 64-bit with the Microsoft Edge WebView2 Runtime (preinstalled on
+Windows 11) and a WebGL 2 GPU. The executable is not code-signed, so SmartScreen may ask
+for confirmation. No compilation is needed.
+
 ## What it does
 
 - **M31 observational** preset: published masses (Chemin+2009, Corbelli+2010, Draine+2014,
