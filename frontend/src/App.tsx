@@ -417,6 +417,10 @@ export default function App() {
           <StructureTree
             state={state} visible={visible} hiddenByMode={hiddenByMode} setVisible={setVisible} selection={sel}
             onSelectComponent={selectComponent} onSelectTag={selectTag}
+            onSelectGroup={(ids, additive) => {
+              setSel((s) => ({ components: additive ? [...new Set([...s.components, ...ids])] : ids, tags: additive ? s.tags : [] }));
+              setTab('inspector');
+            }}
             filterTags={filterTags} setFilterTags={setFilterTags} filterOr={filterOr} setFilterOr={setFilterOr}
             onIsolate={() => setVisible(new Set(sel.components))}
           />

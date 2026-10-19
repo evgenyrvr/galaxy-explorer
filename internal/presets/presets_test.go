@@ -277,3 +277,38 @@ func TestBlackHoleProfiles(t *testing.T) {
 		}
 	}
 }
+
+// Potentials add up, the total is negative and deepest at the centre, and the
+// escape speed exceeds the circular speed everywhere (v_esc² = −2Φ ≥ Vc²
+// is required for bound circular orbits in an isolated system).
+func TestPotentialProfiles(t *testing.T) {
+	for _, p := range All() {
+		m := newModel(t, p.Info().ID)
+		pr := m.Profiles(galaxy.ProfileRequest{})
+		total := pr.Potential[0].Y
+		sum := make([]float64, len(total))
+		for _, s := range pr.Potential[1:] {
+			for i, v := range s.Y {
+				sum[i] += v
+			}
+		}
+		for i, r := range pr.R {
+			if !near(sum[i], total[i]) {
+				t.Fatalf("%s: Σ component Φ ≠ total at r=%g", p.Info().ID, r)
+			}
+			if total[i] >= 0 || (i > 0 && total[i] < total[i-1]) {
+				t.Fatalf("%s: Φ must be negative and rise outwards (r=%g, Φ=%g)", p.Info().ID, r, total[i])
+			}
+			if vc := pr.Vc[0].Y[i]; -2*total[i] < vc*vc {
+				t.Fatalf("%s: v_esc < Vc at r=%g", p.Info().ID, r)
+			}
+		}
+		// Outside all mass: Φ = −G M_total / r.
+		last := len(pr.R) - 1
+		want := -units.G * m.Budget().TotalMass / pr.R[last]
+		if math.Abs(total[last]/want-1) > 0.01 {
+			t.Fatalf("%s: Φ(R200c) = %g, want −GM/R = %g", p.Info().ID, total[last], want)
+		}
+		t.Logf("%s: Φ(0.01 kpc) = %.3g (km/s)², v_esc = %.0f km/s; Φ(R200c) = %.3g", p.Info().ID, total[0], math.Sqrt(-2*total[0]), total[last])
+	}
+}

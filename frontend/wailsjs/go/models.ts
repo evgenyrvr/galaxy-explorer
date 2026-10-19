@@ -199,6 +199,7 @@ export namespace galaxy {
 	    density: Series[];
 	    surface: Series[];
 	    vc: Series[];
+	    potential: Series[];
 	    baryonFraction: number[];
 	    r200c: number;
 	    note: string;
@@ -215,6 +216,7 @@ export namespace galaxy {
 	        this.density = this.convertValues(source["density"], Series);
 	        this.surface = this.convertValues(source["surface"], Series);
 	        this.vc = this.convertValues(source["vc"], Series);
+	        this.potential = this.convertValues(source["potential"], Series);
 	        this.baryonFraction = source["baryonFraction"];
 	        this.r200c = source["r200c"];
 	        this.note = source["note"];

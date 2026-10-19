@@ -197,7 +197,7 @@ func (p *M87) components(env galaxy.Env, shells physics.Distribution) []*galaxy.
 		{ID: "bh.central", Name: "Central black hole", Matter: ontology.BlackHole, Structure: "nucleus", Tags: agn, Evidence: ontology.Reconstructed,
 			Sources: []string{"kormendy2013", "eht2019"}, Dist: physics.PointMass{}, GeomKey: "bh",
 			Notes:  "Point mass from the M_BH–M_bulge relation for this preset. The real M87* is 6.5×10⁹ M☉ (EHT 2019). Schematic icon, not to scale.",
-			Visual: galaxy.Visual{Style: "icon", Color: "#f5b942", Size: 1, Opacity: 1, Markers: 1}},
+			Visual: galaxy.Visual{Style: "icon", Color: "#3fe0c5", Size: 1, Opacity: 1, Markers: 1}},
 	}
 	return withoutNil(comps)
 }

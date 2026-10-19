@@ -38,7 +38,9 @@ for confirmation. No compilation is needed.
   component masses", leave-unallocated vs proportional rebalancing, normalise,
   assign remainder, undo/redo; per-component shares in the inspector.
 - Plots: `M(<r)`, `ρ(r)` [M☉/pc³], `Σ(R)` [M☉/pc²], `Vc(r)`, `f_b(<r)` — never mixing
-  surface and volume density.
+  surface and volume density — and a separate **Gravitational potential** folder with
+  `Φ(R, z = 0)` [(km/s)²] and `v_esc`, for all matter or for any selection (each component
+  plus Σ selected). Both axes switch between logarithmic and linear.
 - Region selection: sphere `r` or cylinder `R` with `|z|` limit; masses computed in Go.
 - Import of observational radial profiles (CSV with units, errors, evidence and source),
   overlaid as points with error bars; comparison with another preset on the same axes.

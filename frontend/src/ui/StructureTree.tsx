@@ -11,6 +11,7 @@ interface Props {
   setVisible: (v: Set<string>) => void;
   selection: Selection;
   onSelectComponent: (id: string, additive: boolean) => void;
+  onSelectGroup: (ids: string[], additive: boolean) => void;
   onSelectTag: (id: string, additive: boolean) => void;
   filterTags: string[];
   setFilterTags: (t: string[]) => void;
@@ -77,7 +78,13 @@ export function StructureTree(p: Props) {
                 {collapsed[group] ? '▸' : '▾'}
               </span>
               <TriCheck state={state} onChange={(on) => toggle(ids, on)} />
-              <span className="tree-name">{group}</span>
+              <span
+                className={`tree-name group-name ${ids.every((id) => p.selection.components.includes(id)) ? 'selected' : ''}`}
+                onClick={(e) => p.onSelectGroup(ids, e.ctrlKey || e.shiftKey || e.metaKey)}
+                title={`Select all ${group.toLowerCase()} components (Ctrl/Shift adds)`}
+              >
+                {group}
+              </span>
             </div>
             {!collapsed[group] &&
               shown.map((c) => {

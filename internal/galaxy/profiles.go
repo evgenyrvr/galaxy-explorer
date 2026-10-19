@@ -24,6 +24,7 @@ type Profiles struct {
 	Density    []Series  `json:"density"`
 	Surface    []Series  `json:"surface"`
 	Vc         []Series  `json:"vc"`
+	Potential  []Series  `json:"potential"`      // Φ(R, z = 0), (km/s)², Φ(∞) = 0
 	BaryonFrac []float64 `json:"baryonFraction"` // f_b(<r), excluding the black hole
 	R200c      float64   `json:"r200c"`
 	Note       string    `json:"note"`
@@ -64,12 +65,13 @@ func (m *Model) Profiles(req ProfileRequest) Profiles {
 		want[id] = true
 	}
 	p := Profiles{R: grid, R200c: m.r200c,
-		Note:       "Vc uses the Freeman (1970) midplane formula for pure exponential stellar discs and the spherical approximation G·M(<r)/r for all other components.",
+		Note:       "Vc and Φ are evaluated in the disc midplane: exact Freeman (1970) formulae for pure exponential stellar discs, the spherical approximation for all other components; Φ(∞) = 0 and no mass is modelled beyond R200c.",
 		Provenance: string(m.preset.Info().Kind),
 	}
 	total := make([]float64, n)
 	baryon := make([]float64, n)
 	vc2 := make([]float64, n)
+	phiTotal := make([]float64, n)
 	for _, c := range m.comps {
 		mass := m.componentMass(c)
 		enc := make([]float64, n)
@@ -93,6 +95,10 @@ func (m *Model) Profiles(req ProfileRequest) Profiles {
 				v2 = units.G * enc[i] / r
 			}
 			vc2[i] += v2
+		}
+		phi := componentPotential(c, mass, grid)
+		for i := range phi {
+			phiTotal[i] += phi[i]
 		}
 		if len(want) > 0 && !want[c.ID] {
 			continue
@@ -120,6 +126,7 @@ func (m *Model) Profiles(req ProfileRequest) Profiles {
 			vcc[i] = math.Sqrt(units.G * enc[i] / r)
 		}
 		p.Vc = append(p.Vc, Series{ID: c.ID, Label: c.Name, Y: vcc})
+		p.Potential = append(p.Potential, Series{ID: c.ID, Label: c.Name, Y: phi})
 	}
 	p.Enclosed = append([]Series{{ID: "total", Label: "Total", Y: total}}, p.Enclosed...)
 	p.Density = append([]Series{{ID: "total", Label: "Total", Y: densityFromEnclosed(grid, total)}}, p.Density...)
@@ -128,6 +135,7 @@ func (m *Model) Profiles(req ProfileRequest) Profiles {
 		vt[i] = math.Sqrt(math.Max(0, vc2[i]))
 	}
 	p.Vc = append([]Series{{ID: "total", Label: "Total", Y: vt}}, p.Vc...)
+	p.Potential = append([]Series{{ID: "total", Label: "Total", Y: phiTotal}}, p.Potential...)
 	p.BaryonFrac = make([]float64, n)
 	for i := range total {
 		if total[i] > 0 {
@@ -202,4 +210,31 @@ func EnclosedFrom(masses map[string]float64, comps []*Component, rmax float64) p
 		t := (r - grid[lo]) / (grid[hi] - grid[lo])
 		return ys[lo] + t*(ys[hi]-ys[lo])
 	}
+}
+
+// componentPotential returns Φ in (km/s)² on the grid, in the disc midplane:
+// exact for exponential stellar discs, spherical average otherwise.
+func componentPotential(c *Component, mass float64, grid []float64) []float64 {
+	out := make([]float64, len(grid))
+	if mass == 0 {
+		return out
+	}
+	if d, ok := c.Dist.(physics.MidplanePotential); ok {
+		exact := true
+		for i, r := range grid {
+			v := d.MidplanePhiPerGM(r)
+			if math.IsNaN(v) {
+				exact = false
+				break
+			}
+			out[i] = units.G * mass * v
+		}
+		if exact {
+			return out
+		}
+	}
+	for i, v := range physics.SphericalPotentialPerGM(c.Dist, grid) {
+		out[i] = units.G * mass * v
+	}
+	return out
 }

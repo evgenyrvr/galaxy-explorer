@@ -2,18 +2,24 @@ import { useEffect, useRef, useState } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import { arr, ComponentState, Dataset, PresetInfo, Profiles } from '../api';
-import { sup } from '../format';
+import { sci, sup } from '../format';
 import { LogFrontendError } from '../../wailsjs/go/main/App';
 
-type Kind = 'enclosed' | 'density' | 'surface' | 'vc' | 'fb';
+type Kind = 'enclosed' | 'density' | 'surface' | 'vc' | 'fb' | 'phi' | 'vesc';
+type Group = 'mass' | 'potential';
 
-const KINDS: { id: Kind; label: string; y: string; logY: boolean; x: string; quantity?: string }[] = [
-  { id: 'enclosed', label: 'M(<r)', y: 'M(<r), M☉', logY: true, x: 'r, kpc', quantity: 'enclosed_mass' },
-  { id: 'density', label: 'ρ(r)', y: `ρ(r), M☉/pc${sup(3)} (spherical average)`, logY: true, x: 'r, kpc', quantity: 'volume_density' },
-  { id: 'surface', label: 'Σ(R)', y: `Σ(R), M☉/pc${sup(2)} (discs)`, logY: true, x: 'R (cylindrical), kpc', quantity: 'surface_density' },
-  { id: 'vc', label: 'Vc(r)', y: 'Vc, km/s', logY: false, x: 'r, kpc', quantity: 'circular_velocity' },
-  { id: 'fb', label: 'f_b(<r)', y: 'baryon fraction f_b(<r)', logY: false, x: 'r, kpc' },
+// sum: how curves of several components combine — linearly, in quadrature (Vc), or not at all.
+const KINDS: { id: Kind; group: Group; label: string; y: string; yLog?: string; logY: boolean; x: string; quantity?: string; sum: 'add' | 'quad' | 'none' }[] = [
+  { id: 'enclosed', group: 'mass', label: 'M(<r)', y: 'M(<r), M☉', logY: true, x: 'r, kpc', quantity: 'enclosed_mass', sum: 'add' },
+  { id: 'density', group: 'mass', label: 'ρ(r)', y: `ρ(r), M☉/pc${sup(3)} (spherical average)`, logY: true, x: 'r, kpc', quantity: 'volume_density', sum: 'add' },
+  { id: 'surface', group: 'mass', label: 'Σ(R)', y: `Σ(R), M☉/pc${sup(2)} (discs)`, logY: true, x: 'R (cylindrical), kpc', quantity: 'surface_density', sum: 'add' },
+  { id: 'vc', group: 'mass', label: 'Vc(r)', y: 'Vc, km/s', logY: false, x: 'r, kpc', quantity: 'circular_velocity', sum: 'quad' },
+  { id: 'fb', group: 'mass', label: 'f_b(<r)', y: 'baryon fraction f_b(<r)', logY: false, x: 'r, kpc', sum: 'none' },
+  // Φ is negative: the log scale shows −Φ. Both are evaluated in the disc midplane (z = 0).
+  { id: 'phi', group: 'potential', label: 'Φ(R)', y: `Φ(R, z = 0), (km/s)${sup(2)}`, yLog: `−Φ(R, z = 0), (km/s)${sup(2)}`, logY: false, x: 'R, kpc', sum: 'add' },
+  { id: 'vesc', group: 'potential', label: 'v_esc(R)', y: 'v_esc = √(−2Φ), km/s', logY: false, x: 'R, kpc', sum: 'add' },
 ];
+const DEFAULT_LOG_Y = Object.fromEntries(KINDS.map((x) => [x.id, x.logY])) as Record<Kind, boolean>;
 
 const DATA_COLORS = ['#ff5ea8', '#5effc1', '#ffd45e', '#5ec8ff', '#c45eff'];
 
@@ -40,7 +46,12 @@ interface Props {
 type S = { id: string; label: string; y: (number | null)[]; color: string; dash?: number[] };
 
 export function Charts(p: Props) {
-  const [kind, setKind] = useState<Kind>('enclosed');
+  const [group, setGroup] = useState<Group>('mass');
+  const [kindByGroup, setKindByGroup] = useState<Record<Group, Kind>>({ mass: 'enclosed', potential: 'phi' });
+  const [yLogByKind, setYLogByKind] = useState<Record<Kind, boolean>>(DEFAULT_LOG_Y);
+  const kind = kindByGroup[group];
+  const logY = yLogByKind[kind];
+  const setKind = (k: Kind) => setKindByGroup({ ...kindByGroup, [group]: k });
   const host = useRef<HTMLDivElement>(null);
   const plot = useRef<uPlot | null>(null);
   const [legend, setLegend] = useState<{ label: string; color: string; dash?: boolean; points?: boolean }[]>([]);
@@ -55,7 +66,11 @@ export function Charts(p: Props) {
     const colors = new Map(p.components.map((c) => [c.id, c.visual.color]));
     const byId = new Map(p.components.map((c) => [c.id, c]));
     const listOf = (prof: Profiles) =>
-      arr(kind === 'enclosed' ? prof.enclosed : kind === 'density' ? prof.density : kind === 'surface' ? prof.surface : prof.vc);
+      arr(kind === 'enclosed' ? prof.enclosed : kind === 'density' ? prof.density : kind === 'surface' ? prof.surface
+        : kind === 'phi' || kind === 'vesc' ? prof.potential : prof.vc);
+    // Display transform applied after summing (potentials add, escape speeds do not).
+    const view = (y: number[]): number[] =>
+      kind === 'vesc' ? y.map((v) => Math.sqrt(Math.max(0, -2 * v))) : kind === 'phi' && logY ? y.map((v) => -v) : y;
 
     // Without a selection, curves are summed per matter category (Vc in quadrature).
     const pick = (prof: Profiles, quadrature: boolean): S[] => {
@@ -66,7 +81,16 @@ export function Charts(p: Props) {
         p.show.length > 0
           ? { ...s, label: 'Total (all matter)', color: '#8a94ad', dash: [4, 4] }
           : { ...s, label: 'Total (all matter)', color: '#ffffff' });
-      if (p.show.length > 0) return [...total, ...all.filter((s) => p.show.includes(s.id)).map((s) => ({ ...s, color: colors.get(s.id) ?? '#888' }))];
+      if (p.show.length > 0) {
+        const sel = all.filter((s) => p.show.includes(s.id));
+        const out: S[] = [...total, ...sel.map((s) => ({ ...s, color: colors.get(s.id) ?? '#888' }))];
+        if (sel.length >= 2 && k.sum !== 'none') {
+          // The selection as one system: potentials and masses add, Vc adds in quadrature.
+          const y = sel[0].y.map((_, i) => sel.reduce((a, s) => a + (quadrature ? s.y[i] * s.y[i] : s.y[i]), 0));
+          out.push({ id: 'selected', label: `Σ selected (${sel.length})`, y: quadrature ? y.map(Math.sqrt) : y, color: '#7fe3ff' });
+        }
+        return out;
+      }
       const groups = new Map<string, { id: string; label: string; y: number[]; color: string }>();
       for (const s of all) {
         const c = byId.get(s.id);
@@ -80,12 +104,12 @@ export function Charts(p: Props) {
       return [...total, ...out];
     };
 
-    const model: S[] = kind === 'fb'
+    const model: S[] = (kind === 'fb'
       ? [{ id: 'fb', label: 'f_b(<r)', y: arr(p.profiles.baryonFraction), color: '#ffffff' }]
-      : pick(p.profiles, kind === 'vc');
+      : pick(p.profiles, kind === 'vc')).map((s) => ({ ...s, y: view(s.y as number[]) }));
     if (p.compare && kind !== 'surface') {
       const y = kind === 'fb' ? arr(p.compare.baryonFraction) : listOf(p.compare).find((s) => s.id === 'total')?.y;
-      if (y) model.push({ id: 'compare', label: `${p.compareName} (total)`, y, color: '#9aa6c0', dash: [6, 4] });
+      if (y) model.push({ id: 'compare', label: `${p.compareName} (total)`, y: view(y), color: '#9aa6c0', dash: [6, 4] });
     }
 
     const xs = arr(p.profiles.r);
@@ -94,8 +118,8 @@ export function Charts(p: Props) {
     // Log axes: drop values far below the largest one so the range stays ≤ 12 decades.
     const ymax = Math.max(1e-300, ...series.flatMap((s) => s.y.map((v) => v ?? 0)));
     const floor = ymax * 1e-12;
-    const shown = series.filter((s) => !k.logY || s.y.some((v) => v != null && v > floor));
-    const clean = (y: (number | null)[]) => y.map((v) => (v == null || (k.logY && !(v > floor)) ? null : v));
+    const shown = series.filter((s) => !logY || s.y.some((v) => v != null && v > floor));
+    const clean = (y: (number | null)[]) => y.map((v) => (v == null || (logY && !(v > floor)) ? null : v));
     const data = [xs, ...shown.map((s) => clean(s.y))] as uPlot.AlignedData;
 
     // Imported points are drawn on top (they may share radii and have asymmetric errors).
@@ -114,7 +138,7 @@ export function Charts(p: Props) {
         ctx.fillStyle = pt.color;
         ctx.lineWidth = 1.2 * dpr;
         if (pt.errLo > 0 || pt.errHi > 0) {
-          const lo = k.logY ? Math.max(pt.v - pt.errLo, floor) : pt.v - pt.errLo;
+          const lo = logY ? Math.max(pt.v - pt.errLo, floor) : pt.v - pt.errLo;
           const y0 = u.valToPos(lo, 'y', true), y1 = u.valToPos(pt.v + pt.errHi, 'y', true);
           ctx.beginPath();
           ctx.moveTo(cx, y0);
@@ -132,14 +156,14 @@ export function Charts(p: Props) {
       ctx.restore();
     };
     const dataX = pts.map((q) => q.r);
-    const dataY = pts.flatMap((q) => [q.v - q.errLo, q.v + q.errHi, q.v]).filter((v) => !k.logY || v > floor);
+    const dataY = pts.flatMap((q) => [q.v - q.errLo, q.v + q.errHi, q.v]).filter((v) => !logY || v > floor);
     const xRange = (_u: uPlot, mn: number, mx: number): uPlot.Range.MinMax =>
       p.xLog
         ? (uPlot.rangeLog(Math.min(mn, ...dataX), Math.max(mx, ...dataX), 10, true) as uPlot.Range.MinMax)
         : [0, Math.max(mx, ...dataX) * 1.02];
     const yRange = (_u: uPlot, mn: number, mx: number): uPlot.Range.MinMax => {
       const lo = Math.min(mn, ...dataY), hi = Math.max(mx, ...dataY);
-      if (k.logY) return uPlot.rangeLog(lo, hi, 10, true) as uPlot.Range.MinMax;
+      if (logY) return uPlot.rangeLog(lo, hi, 10, true) as uPlot.Range.MinMax;
       const pad = 0.05 * (hi - lo || 1);
       return [lo - pad, hi + pad];
     };
@@ -147,12 +171,12 @@ export function Charts(p: Props) {
     const opts: uPlot.Options = {
       width: Math.max(200, el.clientWidth - 16),
       height: Math.max(100, el.clientHeight),
-      scales: { x: { time: false, distr: p.xLog ? 3 : 1, range: xRange }, y: k.logY ? { distr: 3, range: yRange } : { range: yRange } },
+      scales: { x: { time: false, distr: p.xLog ? 3 : 1, range: xRange }, y: logY ? { distr: 3, range: yRange } : { range: yRange } },
       axes: [
         { label: k.x, stroke: '#9aa6c0', grid: { stroke: '#1d2436' }, ticks: { stroke: '#2a3350' }, values: (_u, v) => (p.xLog ? v.map(decadeLabel(v)) : v.map((x) => String(+x.toPrecision(4)))) },
         {
-          label: k.y, stroke: '#9aa6c0', grid: { stroke: '#1d2436' }, ticks: { stroke: '#2a3350' }, size: 64, space: 22,
-          values: (u, v) => (k.logY ? v.map(decadeLabel(v, Math.max(3, Math.floor(u.bbox.height / devicePixelRatio / 22)))) : v.map((x) => String(+x.toPrecision(3)))),
+          label: logY && k.yLog ? k.yLog : k.y, stroke: '#9aa6c0', grid: { stroke: '#1d2436' }, ticks: { stroke: '#2a3350' }, size: 64, space: 22,
+          values: (u, v) => (logY ? v.map(decadeLabel(v, Math.max(3, Math.floor(u.bbox.height / devicePixelRatio / 22)))) : v.map((x) => (Math.abs(x) >= 1e4 ? sci(x, 2) : String(+x.toPrecision(3))))),
         },
       ],
       legend: { show: false },
@@ -163,7 +187,7 @@ export function Charts(p: Props) {
         ...shown.map((s) => ({
           label: s.label,
           stroke: s.color,
-          width: s.id === 'total' ? 2 : 1.4,
+          width: s.id === 'total' || s.id === 'selected' ? 2 : 1.4,
           dash: s.dash,
           spanGaps: true,
           points: { show: false },
@@ -196,12 +220,16 @@ export function Charts(p: Props) {
       plot.current?.destroy();
       plot.current = null;
     };
-  }, [p.profiles, p.compare, kind, p.show.join(','), p.components, p.datasets, p.xLog]);
+  }, [p.profiles, p.compare, kind, p.show.join(','), p.components, p.datasets, p.xLog, logY]);
 
   return (
     <div className="charts">
       <div className="tabs">
-        {KINDS.map((x) => (
+        <span className="folders" role="tablist">
+          <button className={group === 'mass' ? 'on' : ''} onClick={() => setGroup('mass')} title="Mass, density and rotation">Mass &amp; dynamics</button>
+          <button className={group === 'potential' ? 'on' : ''} onClick={() => setGroup('potential')} title="Gravitational potential and escape speed">Gravitational potential</button>
+        </span>
+        {KINDS.filter((x) => x.group === group).map((x) => (
           <button key={x.id} className={kind === x.id ? 'on' : ''} onClick={() => setKind(x.id)}>
             {x.label}
           </button>
@@ -212,6 +240,12 @@ export function Charts(p: Props) {
           title="Switch the radius axis between logarithmic and linear"
         >
           x: {p.xLog ? 'log' : 'lin'}
+        </button>
+        <button
+          className="axis-toggle" onClick={() => setYLogByKind({ ...yLogByKind, [kind]: !logY })}
+          title={kind === 'phi' ? 'Linear Φ, or −Φ on a logarithmic axis' : 'Switch the value axis between logarithmic and linear'}
+        >
+          y: {logY ? 'log' : 'lin'}
         </button>
         <button className={p.expanded ? 'on' : ''} onClick={p.onToggleExpand} title={p.expanded ? 'Back to the scene (Esc)' : 'Expand the plots to the whole window'}>
           {p.expanded ? '⤡ Collapse' : '⤢ Expand'}
@@ -248,7 +282,10 @@ export function Charts(p: Props) {
             ? `${pointMasses.join(', ')}: point mass — its density is a δ-function at r = 0 and is not plotted. `
             : ''}
           {kind === 'vc' && pointMasses.length > 0 ? `${pointMasses.join(', ')}: Keplerian Vc ∝ r^−1/2. ` : ''}
-          Model curves: synthetic reconstruction. {kind === 'vc' ? p.profiles?.note : ''}
+          {group === 'potential'
+            ? `Φ(∞) = 0; no mass beyond R200c. ${p.show.length === 0 ? 'Select components (e.g. bulge + stellar disc, or the Stars group) to see their own potential and Σ selected. ' : ''}`
+            : ''}
+          Model curves: synthetic reconstruction. {kind === 'vc' || group === 'potential' ? p.profiles?.note : ''}
         </span>
       </div>
       <div className="chart-host" ref={host} />

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0 — 2026-10-19
+
+- New plot folder **Gravitational potential**: Φ(R) and escape speed v_esc = √(−2Φ) in the
+  disc midplane, Φ(∞) = 0. Exact potential of exponential stellar discs (Binney & Tremaine
+  eq. 2.168, Bessel functions); spherical potential Φ = −G[M(<r)/r + ∫_r^∞ dM/r'] for all
+  other components; −GM/r for the black hole and beyond R200c.
+- Value axis switch **y: log / lin** on every tab (Φ on a log axis is shown as −Φ), in
+  addition to x: log / lin.
+- Potential of a selection: each selected component plus **Σ selected** (potentials and
+  masses add, Vc adds in quadrature) — e.g. bulge + stellar disc, or the whole stellar
+  population. Clicking a group name in the tree (Stars, Gas, …) selects the whole group.
+- Black hole colour changed to teal (the orange was too close to the hot gas).
+- Tests: truncated NFW and Hernquist potentials against analytic formulae, R dΦ/dR = Vc²
+  for the disc, Σ component Φ = total, Φ(R200c) = −GM200c/R200c, v_esc > Vc everywhere.
+
 ## 0.3.3 — 2026-10-15
 
 - Fix (plots): the central black hole was drawn in the same white as the total curve, so

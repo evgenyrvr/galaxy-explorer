@@ -145,3 +145,58 @@ func TestLeapfrogConservesEnergy(t *testing.T) {
 		t.Fatalf("relative energy drift %g", rel)
 	}
 }
+
+// Truncated NFW: Φ(r) = −G·4πρs·rs³ [ln(1 + r/rs)/r − 1/(Rt + rs)] inside Rt.
+func TestSphericalPotentialNFW(t *testing.T) {
+	rs, c := 20.0, 10.0
+	rt := rs * c
+	d := NewSpheroid(NFW(rs, c), rt, SpheroidOptions{})
+	mu := math.Log(1+c) - c/(1+c)
+	grid := []float64{0.1, 1, 5, 20, 80, 199, 400}
+	got := SphericalPotentialPerGM(d, grid)
+	for i, r := range grid {
+		var want float64
+		if r < rt {
+			want = -(math.Log(1+r/rs)/r - 1/(rt+rs)) / mu
+		} else {
+			want = -1 / r
+		}
+		if math.Abs(got[i]/want-1) > 2e-3 {
+			t.Errorf("r=%g: Φ/GM = %.6g, want %.6g", r, got[i], want)
+		}
+	}
+}
+
+// Point mass is exactly Keplerian; a Hernquist sphere tends to −GM/(r + a).
+func TestSphericalPotentialHernquist(t *testing.T) {
+	a := 1.0
+	d := NewSpheroid(Hernquist(a), 2000, SpheroidOptions{})
+	for _, r := range []float64{0.05, 0.5, 2, 10} {
+		got := SphericalPotentialPerGM(d, []float64{r})[0]
+		want := -1 / (r + a) // untruncated; truncation at 2000a shifts it by < 0.1%
+		if math.Abs(got/want-1) > 3e-3 {
+			t.Errorf("r=%g: %.6g vs %.6g", r, got, want)
+		}
+	}
+	if p := SphericalPotentialPerGM(PointMass{}, []float64{2})[0]; p != -0.5 {
+		t.Errorf("point mass Φ/GM(2) = %g", p)
+	}
+}
+
+// Freeman midplane potential: −GM/R far away, and Vc² = R dΦ/dR.
+func TestDiscMidplanePotential(t *testing.T) {
+	rd := 3.0
+	d := NewDisc(DiscOptions{Rd: rd, Z0: 0.3, RMax: 60})
+	far := 40 * rd
+	if p := d.MidplanePhiPerGM(far); math.Abs(p*far+1) > 0.01 {
+		t.Errorf("far field Φ·R/GM = %g, want −1", p*far)
+	}
+	for _, R := range []float64{1, 3, 6, 12} {
+		h := 1e-4 * R
+		dphi := (d.MidplanePhiPerGM(R+h) - d.MidplanePhiPerGM(R-h)) / (2 * h)
+		// 2e-3: the A&S polynomial branches switch at y = 2 (R = 12 here).
+		if v2 := d.MidplaneVc2PerGM(R); math.Abs(R*dphi/v2-1) > 2e-3 {
+			t.Errorf("R=%g: R dΦ/dR = %g, Vc² = %g", R, R*dphi, v2)
+		}
+	}
+}

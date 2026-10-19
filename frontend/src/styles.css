@@ -170,3 +170,14 @@ input.num.short { width: 56px; }
 .right-toggle { right: 0; border-right: none; border-radius: 4px 0 0 4px; }
 .axis-toggle { min-width: 58px; font-variant-numeric: tabular-nums; }
 .center.no-charts { grid-template-rows: minmax(0, 1fr); }
+
+.folders { display: inline-flex; gap: 0; margin-right: 6px; }
+.folders button { border-radius: 0; }
+.folders button:first-child { border-radius: 4px 0 0 4px; }
+.folders button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+.folders button.on { background: #15304a; }
+.tree-row.group-row .tree-name.group-name { cursor: pointer; }
+.tree-row.group-row .tree-name.group-name:hover { color: var(--accent); }
+.tree-row.group-row .tree-name.group-name.selected { color: var(--accent); }
+.charts .tabs { flex-wrap: wrap; row-gap: 4px; overflow: visible; }
+.charts .tabs button, .charts .tabs label { white-space: nowrap; }
